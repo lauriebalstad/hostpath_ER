@@ -1,26 +1,26 @@
 {
-    "id": "D01A4515",
-    "path": "~/GitHub/evorescue_hostpath_str/model.R",
-    "project_path": "model.R",
+    "id": "B14FC919",
+    "path": "~/GitHub/evorescue_hostpath_str/exploratory_sims.R",
+    "project_path": "exploratory_sims.R",
     "type": "r_source",
     "hash": "0",
     "contents": "",
     "dirty": false,
-    "created": 1702418722154.0,
+    "created": 1702575059912.0,
     "source_on_save": false,
-    "relative_order": 1,
+    "relative_order": 7,
     "properties": {
         "source_window_id": "",
         "Source": "Source",
-        "cursorPosition": "26,46",
-        "scrollLine": "19"
+        "cursorPosition": "29,34",
+        "scrollLine": "58"
     },
     "folds": "",
-    "lastKnownWriteTime": 1703097041,
+    "lastKnownWriteTime": 1703097381,
     "encoding": "UTF-8",
     "collab_server": "",
     "source_window": "",
-    "last_content_update": 1703097041278,
+    "last_content_update": 1703097381986,
     "read_only": false,
     "read_only_alternatives": []
 }

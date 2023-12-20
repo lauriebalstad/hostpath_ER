@@ -1,26 +1,26 @@
 {
-    "id": "D01A4515",
-    "path": "~/GitHub/evorescue_hostpath_str/model.R",
-    "project_path": "model.R",
+    "id": "F4353644",
+    "path": "~/GitHub/evorescue_hostpath_str/struct_sens.R",
+    "project_path": "struct_sens.R",
     "type": "r_source",
     "hash": "0",
     "contents": "",
     "dirty": false,
-    "created": 1702418722154.0,
+    "created": 1702432950836.0,
     "source_on_save": false,
-    "relative_order": 1,
+    "relative_order": 2,
     "properties": {
         "source_window_id": "",
         "Source": "Source",
-        "cursorPosition": "26,46",
-        "scrollLine": "19"
+        "cursorPosition": "13,32",
+        "scrollLine": "6"
     },
     "folds": "",
-    "lastKnownWriteTime": 1703097041,
+    "lastKnownWriteTime": 1702706243,
     "encoding": "UTF-8",
     "collab_server": "",
     "source_window": "",
-    "last_content_update": 1703097041278,
+    "last_content_update": 1702706243716,
     "read_only": false,
     "read_only_alternatives": []
 }
