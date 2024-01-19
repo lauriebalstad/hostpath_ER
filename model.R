@@ -5,17 +5,23 @@
 # 3. alternative types of resistance (3)
 
 library(dplyr)
+library(parallel)
+library(foreach)
+library(doParallel)
 
-run_gens <- function(comp_str, event_order, # structural
-                     n_RR, n_WR, n_WW, init_I, # set ups
-                     b_RR, b_WR, b_WW, b_sd, # transmission
-                     m_SRR, m_SWR, m_SWW, m_IRR, m_IWR, m_IWW, m_Ssd, m_Isd, # mortality
-                     r_RR, r_WR, r_WW, r_sd, # recovery
-                     l_RR, l_WR, l_WW, l_sd, # reproduction
-                     K, K_sd, ngens, bnum) { # pop size and gen time info
+# so the plan is that the bnum reps is divided across cores
+
+run_gens <- function(parm_vect, ngens, bnum) { # pop size and gen time info
   # note this takes in a compartment structure SIS, SIX, SIR 
   # second takes in an order: events order (e1, e2, e3) (B,M,R)
   # and then all the parameters
+  comp_str <- parm_vect[1]; event_order <- parm_vect[2] # structural
+  n_RR <- parm_vect[3]; n_WR <- parm_vect[4]; n_WW <- parm_vect[5]; init_I <- parm_vect[6] # set ups
+  b_RR <- parm_vect[7]; b_WR <- parm_vect[8]; b_WW <- parm_vect[9]; b_sd <- parm_vect[10] # transmission
+  m_SRR <- parm_vect[11]; m_SWR <- parm_vect[12]; m_SWW <- parm_vect[13]; m_IRR <- parm_vect[14]; m_IWR <- parm_vect[15]; m_IWW <- parm_vect[16]; m_Ssd <- parm_vect[17]; m_Isd <- parm_vect[18] # mortality
+  r_RR <- parm_vect[19]; r_WR <- parm_vect[20]; r_WW <- parm_vect[21]; r_sd <- parm_vect[22] # recovery
+  l_RR <- parm_vect[23]; l_WR <- parm_vect[24]; l_WW  <- parm_vect[25]; l_sd <- parm_vect[26] # reproduction
+  K <- parm_vect[27]; K_sd <- parm_vect[28]
   
   # get compartmetns
   if(comp_str == 1) compartments <- c("SIX")
@@ -39,12 +45,13 @@ run_gens <- function(comp_str, event_order, # structural
   infect_class_I_tf_all <- NULL # final infection prevelence
   infect_class_I_not_extinct <- NULL # conditioned on not being extinct
   lost_I <- NULL # did I class go away? T/F
+  not_extinct_lost_I <- NULL # did I go away and recovery occur? T/F
   time_lost_I <- NULL # and at what time? 
   freq_R_allele_tf <- NULL # final frequency of the R allele
   max_freq_R_allele <- NULL # was there a high point? trying to capture if back selection occured
   time_max_freq_R_allele <- NULL # and what time was the high point?
   
-  for (b in 1:bnum) {
+  all_reps <- foreach(b = 1:bnum, .packages="dplyr", .combine = 'rbind') %dopar% {
     # get inf_stat
     inf_status <- sample(c("S", "I"), 
                          size = sum(n_RR, n_WR, n_WW), 
@@ -221,50 +228,90 @@ run_gens <- function(comp_str, event_order, # structural
       
     }
     
-    extinct <- c(extinct, extinct_dummy) # did the population go extinct? T/F
-    pop_size_tf_all <- c(pop_size_tf_all, last(pop_size)) # final population size
-    pop_size_tf_not_extinct <- if (extinct_dummy==F) c(pop_size_tf_not_extinct, last(pop_size))
-    at_K <- c(at_K, any(carry_capacity==pop_size)) # is the population ever at the carrying capactity? T/F
-    time_first_at_K <- c(time_first_at_K, which(carry_capacity==pop_size)[1]) # and how fast did demographic rescue happen
-    infect_class_I_tf_all <- c(infect_class_I_tf_all, last(I_num)) # final infection prevelence
-    infect_class_I_not_extinct <- if (extinct_dummy==F) c(infect_class_I_not_extinct, last(I_num))
-    lost_I <- c(lost_I, any(I_num == 0)) # did I class go away? T/F
-    time_lost_I <- c(time_lost_I, which(I_num == 0)[1])  # and at what time? 
-    freq_R_allele_tf <- c(freq_R_allele_tf, last(R_freq)) # final frequency of the R allele
-    max_freq_R_allele <- c(max_freq_R_allele, max(R_freq)) # was there a high point? trying to capture if back selection occured
-    time_max_freq_R_allele <- c(time_max_freq_R_allele, which(R_freq == max(R_freq))[1]) # and what time was the high point?
+    # extinct <- c(extinct, extinct_dummy) # did the population go extinct? T/F
+    # pop_size_tf_all <- c(pop_size_tf_all, last(pop_size)) # final population size
+    # pop_size_tf_not_extinct <- if (!extinct_dummy) {c(pop_size_tf_not_extinct, last(pop_size))} else {pop_size_tf_not_extinct}
+    # at_K <- c(at_K, any(carry_capacity==pop_size)) # is the population ever at the carrying capactity? T/F
+    # time_first_at_K <- c(time_first_at_K, which(carry_capacity==pop_size)[1]) # and how fast did demographic rescue happen
+    # infect_class_I_tf_all <- c(infect_class_I_tf_all, last(I_num)) # final infection prevelence
+    # infect_class_I_not_extinct <- if (!extinct_dummy) {c(infect_class_I_not_extinct, last(I_num))} else {infect_class_I_not_extinct}
+    # lost_I <- c(lost_I, any(I_num == 0)) # did I class go away? T/F
+    # not_extinct_lost_I <- if (any(I_num == 0) & !extinct_dummy) {c(not_extinct_lost_I, TRUE)} else {c(not_extinct_lost_I, FALSE)}
+    # time_lost_I <- c(time_lost_I, which(I_num == 0)[1])  # and at what time? 
+    # freq_R_allele_tf <- c(freq_R_allele_tf, last(R_freq)) # final frequency of the R allele
+    # max_freq_R_allele <- c(max_freq_R_allele, max(R_freq)) # was there a high point? trying to capture if back selection occured
+    # time_max_freq_R_allele <- c(time_max_freq_R_allele, which(R_freq == max(R_freq))[1]) # and what time was the high point?
+    
+    output_dat <- c(extinct <- extinct_dummy, # did the population go extinct? T/F
+                    pop_size_tf_all <- last(pop_size), # final population size
+                    pop_size_tf_not_extinct <- if (!extinct_dummy) {last(pop_size)} else {NA},
+                    at_K <- any(carry_capacity==pop_size), # is the population ever at the carrying capactity? T/F
+                    time_first_at_K <- which(carry_capacity==pop_size)[1], # and how fast did demographic rescue happen
+                    infect_class_I_tf_all <- last(I_num), # final infection prevelence
+                    infect_class_I_not_extinct <- if (!extinct_dummy) {last(I_num)} else {NA},
+                    lost_I <- any(I_num == 0), # did I class go away? T/F
+                    not_extinct_lost_I <- if (any(I_num == 0) & !extinct_dummy) {TRUE} else {FALSE},
+                    time_lost_I <- which(I_num == 0)[1], # and at what time? 
+                    freq_R_allele_tf <- last(R_freq), # final frequency of the R allele
+                    max_freq_R_allele <- max(R_freq), # was there a high point? trying to capture if back selection occured
+                    time_max_freq_R_allele <- which(R_freq == max(R_freq))[1] # and what time was the high point?
+    )
     
   }
   
   # return summary statistics
-  p_extinct <- sum(extinct)/length(extinct)
-  avg_pop_size_tf <- mean(pop_size_tf_all)
-  sd_pop_size_tf <- sd(pop_size_tf_all)
-  avg_pop_size_given_NE <- mean(pop_size_tf_not_extinct)
-  sd_pop_size_given_NE <- sd(pop_size_tf_not_extinct)
-  p_demo_recovery <- sum(at_K)/length(at_K)
-  avg_time_K <- mean(time_first_at_K, na.rm = T)
-  sd_time_K <- sd(time_first_at_K, na.rm = T)
-  avg_infect_class_I_tf <- mean(infect_class_I_tf_all)
-  sd_infect_class_I_tf <- sd(infect_class_I_tf_all)
-  avg_infect_class_I_given_NE <- mean(infect_class_I_not_extinct)
-  sd_infect_class_I_given_NE <- sd(infect_class_I_not_extinct)
-  p_lost_I <- sum(lost_I)/length(lost_I)
-  avg_time_lost_I <- mean(time_lost_I, na.rm = T)
-  sd_time_lost_I <- sd(time_lost_I, na.rm = T)
-  avg_freq_R_tf <- mean(freq_R_allele_tf)
-  sd_freq_R_tf <- sd(freq_R_allele_tf)
-  avg_max_R <- mean(max_freq_R_allele)
-  avg_time_max_R <- mean(time_max_freq_R_allele) # all will have a maximum
+  all_reps_dat <- as.data.frame(all_reps)
+  colnames(all_reps_dat) <- c("extinct", 
+                              "pop_size_tf_all", "pop_size_tf_not_extinct", "at_K", "time_first_at_K", 
+                              "infect_class_I_tf_all", "infect_class_I_not_extinct", "lost_I", "not_extinct_lost_I", "time_lost_I",
+                              "freq_R_allele_tf", "max_freq_R_allele", "time_max_freq_R_allele")
+  
+  p_extinct <- sum(all_reps_dat$extinct)/bnum # 1
+  avg_pop_size_tf <- mean(all_reps_dat$pop_size_tf_all) # 5
+  sd_pop_size_tf <- sd(all_reps_dat$pop_size_tf_all) # 6
+  p_demo_recovery <- sum(all_reps_dat$at_K)/bnum # 2
+  avg_time_K <- mean(all_reps_dat$time_first_at_K, na.rm = T) # 3
+  sd_time_K <- sd(all_reps_dat$time_first_at_K, na.rm = T) # 4
+  avg_infect_class_I_tf <- mean(all_reps_dat$infect_class_I_tf_all) # 13
+  sd_infect_class_I_tf <- sd(all_reps_dat$infect_class_I_tf_all) # 14
+  p_lost_I <- sum(all_reps_dat$lost_I)/bnum # 9
+  p_not_extinct_lost_I <- sum(all_reps_dat$not_extinct_lost_I)/bnum # 10
+  avg_freq_R_tf <- mean(all_reps_dat$freq_R_allele_tf) # 17
+  sd_freq_R_tf <- sd(all_reps_dat$freq_R_allele_tf) # 18
+  avg_max_R <- mean(all_reps_dat$max_freq_R_allele) # 19
+  avg_time_max_R <- mean(all_reps_dat$time_max_freq_R_allele) # 20
+  
+  all_reps_lostI <- all_reps_dat %>% filter(lost_I)
+  if (dim(all_reps_lostI)[1]==0) {
+  avg_time_lost_I <- "none" # 11 
+  sd_time_lost_I <- "none" # 12
+  } else {
+  avg_time_lost_I <- mean(all_reps_lostI$time_lost_I, na.rm = T) #11
+  sd_time_lost_I <- sd(all_reps_lostI$time_lost_I, na.rm = T) # 12
+  }
+  
+  all_reps_NE <- all_reps_dat %>% filter(!extinct) # filter out to only have not extincts
+  if (dim(all_reps_NE)[1]==0) { # if all extinct true
+  avg_pop_size_given_NE <- "none" # 7 
+  sd_pop_size_given_NE <- "none" # 8 
+  avg_infect_class_I_given_NE <- "none" # 15
+  sd_infect_class_I_given_NE <- "none" # 16 
+  } else { # otherwise, mean for the ones remaining
+  avg_pop_size_given_NE <- mean(all_reps_NE$pop_size_tf_not_extinct) # 7 
+  sd_pop_size_given_NE <- sd(all_reps_NE$pop_size_tf_not_extinct) # 8 
+  avg_infect_class_I_given_NE <- mean(all_reps_NE$infect_class_I_not_extinct) # 15 
+  sd_infect_class_I_given_NE <- sd(all_reps_NE$infect_class_I_not_extinct) # 16 
+  }
   
   return(list(p_extinct, p_demo_recovery, avg_time_K, sd_time_K,
               avg_pop_size_tf, sd_pop_size_tf, avg_pop_size_given_NE, sd_pop_size_given_NE,
-              p_lost_I, avg_time_lost_I, sd_time_lost_I,
+              p_lost_I, p_not_extinct_lost_I, avg_time_lost_I, sd_time_lost_I,
               avg_infect_class_I_tf, sd_infect_class_I_tf, avg_infect_class_I_given_NE, sd_infect_class_I_given_NE,
               avg_freq_R_tf, sd_freq_R_tf, avg_max_R, avg_time_max_R)
          )
   
 }
+
 
 
 

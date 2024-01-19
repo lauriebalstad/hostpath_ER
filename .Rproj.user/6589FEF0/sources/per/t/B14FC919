@@ -3,7 +3,7 @@
     "path": "~/GitHub/evorescue_hostpath_str/exploratory_sims.R",
     "project_path": "exploratory_sims.R",
     "type": "r_source",
-    "hash": "0",
+    "hash": "1947386253",
     "contents": "",
     "dirty": false,
     "created": 1702575059912.0,
@@ -12,15 +12,15 @@
     "properties": {
         "source_window_id": "",
         "Source": "Source",
-        "cursorPosition": "29,34",
-        "scrollLine": "58"
+        "cursorPosition": "12,27",
+        "scrollLine": "0"
     },
     "folds": "",
-    "lastKnownWriteTime": 1703097381,
+    "lastKnownWriteTime": 1705507245,
     "encoding": "UTF-8",
     "collab_server": "",
     "source_window": "",
-    "last_content_update": 1703097381986,
+    "last_content_update": 1705507245416,
     "read_only": false,
     "read_only_alternatives": []
 }
