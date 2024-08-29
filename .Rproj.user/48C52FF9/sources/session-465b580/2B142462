@@ -3,7 +3,7 @@
     "path": "~/GitHub/evorescue_hostpath_str/model.R",
     "project_path": "model.R",
     "type": "r_source",
-    "hash": "2333134866",
+    "hash": "0",
     "contents": "",
     "dirty": false,
     "created": 1724858888001.0,
@@ -12,15 +12,15 @@
     "properties": {
         "source_window_id": "",
         "Source": "Source",
-        "cursorPosition": "164,0",
-        "scrollLine": "197"
+        "cursorPosition": "471,4",
+        "scrollLine": "466"
     },
-    "folds": "61|22|68|4|\n96|30|104|6|\n291|35|324|6|\n",
-    "lastKnownWriteTime": 1724900492,
+    "folds": "76|22|164|4|\n99|30|107|6|\n238|30|246|6|\n256|65|268|6|\n362|30|370|6|\n436|29|444|8|\n447|29|450|8|\n",
+    "lastKnownWriteTime": 1724952948,
     "encoding": "UTF-8",
     "collab_server": "",
     "source_window": "",
-    "last_content_update": 1724900492643,
+    "last_content_update": 1724952948027,
     "read_only": false,
     "read_only_alternatives": []
 }

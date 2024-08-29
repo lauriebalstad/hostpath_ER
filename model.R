@@ -22,8 +22,8 @@ run_gens <- function(parm_vect, ngens, bnum) { # pop size and gen time info
   b_RR <- parm_vect[6]; b_WR <- parm_vect[7]; b_WW <- parm_vect[8]; b_sd <- parm_vect[9] # transmission
   m_SRR <- parm_vect[10]; m_SWR <- parm_vect[11]; m_SWW <- parm_vect[12]; m_IRR <- parm_vect[13]; m_IWR <- parm_vect[14]; m_IWW <- parm_vect[15]; m_Ssd <- parm_vect[16]; m_Isd <- parm_vect[17] # mortality
   r_RR <- parm_vect[18]; r_WR <- parm_vect[19]; r_WW <- parm_vect[20]; r_sd <- parm_vect[21] # recovery
-  l_RR <- parm_vect[22]; l_WR <- parm_vect[23]; l_WW  <- parm_vect[24]; l_sd <- parm_vect[25] # reproduction
-  K <- parm_vect[26]; K_sd <- parm_vect[27] # carrying capacity
+  l_RR <- parm_vect[22]; l_WR <- parm_vect[23]; l_WW  <- parm_vect[24]; l_sd <- parm_vect[25]; mut_rate <- parm_vect[26] # reproduction
+  K <- parm_vect[27]; K_sd <- parm_vect[28] # carrying capacity
   
   # get compartmetns
   if(comp_str == 1) compartments <- c("SIX")
@@ -78,17 +78,20 @@ run_gens <- function(parm_vect, ngens, bnum) { # pop size and gen time info
       
       # placeholders for disease dynamics
       # these are probabilities of each action for an individual
-      inds$transmission <- runif(dim(inds)[1]) 
-      inds$mortalityS <- runif(dim(inds)[1])
-      inds$mortalityI <- runif(dim(inds)[1])
-      inds$recovery <- runif(dim(inds)[1])
+      # inds$transmission <- runif(dim(inds)[1]) 
+      # inds$mortalityS <- runif(dim(inds)[1])
+      # inds$mortalityI <- runif(dim(inds)[1])
+      # inds$recovery <- runif(dim(inds)[1])
       
       # no disease
       # so just mortality
+      # probability of survival
       inds$p_survS <- exp(-inds$mS_pheno)
+      # coin flips
+      inds$mortalityS <- vapply(inds$p_survS, function(x) rbinom(1, 1, x), as.integer(1L))
       # get mortality phenotype: infects
-      tmpS <- inds %>% filter(mS_pheno < mortalityS)
-      inds <- tmpS[, 1:11] # remove bonus columns
+      inds <- inds %>% filter(inf_stat == "S" | inf_stat == "R") %>% filter(mortalityS==1)
+      inds <- inds[, 1:7] # remove extra columns
       
       # draw K first
       K_stoch = floor(rnorm(1, mean=K, sd=K_sd))
@@ -169,46 +172,63 @@ run_gens <- function(parm_vect, ngens, bnum) { # pop size and gen time info
     for (r in 1:r_0){
       
       # these are probabilities of each action for an individual
-      inds$transmission <- runif(dim(inds)[1])  
-      inds$mortalityS <- runif(dim(inds)[1])
-      inds$mortalityI <- runif(dim(inds)[1])
-      inds$recovery <- runif(dim(inds)[1])
+      # inds$transmission <- rep(NA)  
+      # inds$mortalityS <- rep(NA)
+      # inds$mortalityI <- rep(NA)
+      # inds$recovery <- rep(NA)
       
       # now disease
       # do the three events per generation
       for (j in 1:length(events)) {
         if (events[j]=="B") {
           # get transmission phenotype
+          inds$p_transmit <- 1-exp(-inds$b_pheno*length(which(inds$inf_stat=="I")))
+          if(any(inds$p_transmit<0)) print("oh no -- negative transmission probability")
+          # coin flips
+          # inds$change_stat <- rbinom(length(inds$num_ind), 1, inds$p_transmit)
+          inds$change_stat <- vapply(inds$p_transmit, function(x) rbinom(1, 1, x), as.integer(1L))
           # note density dependence: length(which(inds$inf_stat=="I"))
-          inds$change_stat <- (1-exp(-inds$b_pheno*length(which(inds$inf_stat=="I")))) > inds$transmission
-          tmpS <- inds %>% filter(inf_stat=="S" & change_stat==T)
+          # inds$change_stat <- (1-exp(-inds$b_pheno*length(which(inds$inf_stat=="I")))) > inds$transmission
+          tmpS <- inds %>% filter(inf_stat=="S" & change_stat==1)
           if (dim(tmpS)[1] > 0) tmpS$inf_stat <- "I" # goes to being an I
           # everyone else
-          tmpI <- inds %>% filter(inf_stat!="S" | (inf_stat=="S" & change_stat==F))
+          tmpI <- inds %>% filter(inf_stat!="S" | (inf_stat=="S" & change_stat==0))
           # recombine
           inds <- rbind(tmpS, tmpI)
-          inds <- inds[, 1:11]
+          inds <- inds[, 1:7]
         }
         if (events[j]=="M") {
+          # probability of survival
           inds$p_survS <- exp(-inds$mS_pheno)
           inds$p_survI <- exp(-inds$mI_pheno)
+          if(any(inds$p_survS<0)) print("oh no -- negative mortality S probability")
+          if(any(inds$p_survI<0)) print("oh no -- negative mortality I probability")
+          # coin flips
+          inds$mortalityS <- vapply(inds$p_survS, function(x) rbinom(1, 1, x), as.integer(1L))
+          inds$mortalityI <- vapply(inds$p_survI, function(x) rbinom(1, 1, x), as.integer(1L))
           # get mortality phenotype: infects
-          tmpI <- inds %>% filter(inf_stat == "I") %>% filter(mI_pheno < mortalityI)
-          tmpS <- inds %>% filter(inf_stat == "S" | inf_stat == "R") %>% filter(mS_pheno < mortalityS)
+          tmpI <- inds %>% filter(inf_stat == "I") %>% filter(mortalityI==1)
+          tmpS <- inds %>% filter(inf_stat == "S" | inf_stat == "R") %>% filter(mortalityS==1)
           inds <- rbind(tmpI, tmpS)
-          inds <- inds[, 1:11]
+          inds <- inds[, 1:7]
         }
         if (events[j]=="G" & compartments !="SIX") {
           # get recovery phenotype
-          inds$change_stat <- (1-exp(-inds$r_pheno)) > inds$recovery
+          inds$p_recovery <- (1-exp(-inds$r_pheno))
+          if(any(inds$p_recovery<0)) {
+            print("oh no -- negative recovery probability in r loop")
+            print(r)
+            }
+          # coin flip
+          inds$change_stat <- vapply(inds$p_recovery, function(x) rbinom(1, 1, x), as.integer(1L))
           # get I --> not I list
-          tmpI <- inds %>% filter(inf_stat=="I" & change_stat==T)
-          if (dim(tmpI)[1] > 0) tmpI$inf_stat <- ifelse(compartments=="SIR", "R", "S")
+          tmpI <- inds %>% filter(inf_stat=="I" & change_stat==1)
+          if (dim(tmpI)[1] > 0) tmpI$inf_stat <- ifelse(compartments=="SIR", "R", "S") # if it's not SIR, it's SIS
           # everyone else
-          tmpS <- inds %>% filter(inf_stat!="I" | (inf_stat=="I" & change_stat==F))
+          tmpS <- inds %>% filter(inf_stat!="I" | (inf_stat=="I" & change_stat==0))
           # recombine
           inds <- rbind(tmpS, tmpI)
-          inds <- inds[, 1:11]
+          inds <- inds[, 1:7]
         }
       }
       
@@ -256,6 +276,7 @@ run_gens <- function(parm_vect, ngens, bnum) { # pop size and gen time info
         for (i in 1:length(index_neg)) {
           col_num <- ceiling(index_neg[i]/dim(off_dat)[1])
           row_num <- index_neg[i]%%dim(off_dat)[1]
+          if (row_num == 0) {row_num <- dim(off_dat[1])}
           off_dat[row_num,col_num] <- 0
         }
       }
@@ -277,50 +298,63 @@ run_gens <- function(parm_vect, ngens, bnum) { # pop size and gen time info
     }
     
     if(dim(inds)[1]==0) {print("everyone dead"); break}
-    # change one individual to WR
-    inds$ind_geno[sample(1:length(inds$ind_num), 1, replace = F)] <- "WR"
     
     for (i in 1:ngens) {
       # draw probabilities for all process each year --> need to truncate at 0?
       # phenotypes stay the same
-      inds$transmission <- runif(dim(inds)[1]) 
-      inds$mortalityS <- runif(dim(inds)[1])
-      inds$mortalityI <- runif(dim(inds)[1])
-      inds$recovery <- runif(dim(inds)[1])
+      # inds$transmission <- runif(dim(inds)[1]) 
+      # inds$mortalityS <- runif(dim(inds)[1])
+      # inds$mortalityI <- runif(dim(inds)[1])
+      # inds$recovery <- runif(dim(inds)[1])
       
       # do the three events per generation
       for (j in 1:length(events)) {
         if (events[j]=="B") {
           # get transmission phenotype
-          inds$change_stat <- (1-exp(-inds$b_pheno*length(which(inds$inf_stat=="I")))) > inds$transmission
-          tmpS <- inds %>% filter(inf_stat=="S" & change_stat==T)
+          inds$p_transmit <- 1-exp(-inds$b_pheno*length(which(inds$inf_stat=="I")))
+          if(any(inds$p_transmit<0)) print("oh no -- negative transmission probability")
+          # coin flips
+          # inds$change_stat <- rbinom(length(inds$num_ind), 1, inds$p_transmit)
+          inds$change_stat <- vapply(inds$p_transmit, function(x) rbinom(1, 1, x), as.integer(1L))
+          # note density dependence: length(which(inds$inf_stat=="I"))
+          # inds$change_stat <- (1-exp(-inds$b_pheno*length(which(inds$inf_stat=="I")))) > inds$transmission
+          tmpS <- inds %>% filter(inf_stat=="S" & change_stat==1)
           if (dim(tmpS)[1] > 0) tmpS$inf_stat <- "I" # goes to being an I
           # everyone else
-          tmpI <- inds %>% filter(inf_stat!="S" | (inf_stat=="S" & change_stat==F))
+          tmpI <- inds %>% filter(inf_stat!="S" | (inf_stat=="S" & change_stat==0))
           # recombine
           inds <- rbind(tmpS, tmpI)
-          inds <- inds[, 1:11]
+          inds <- inds[, 1:7]
         }
         if (events[j]=="M") {
+          # probability of survival
           inds$p_survS <- exp(-inds$mS_pheno)
           inds$p_survI <- exp(-inds$mI_pheno)
+          if(any(inds$p_survS<0)) print("oh no -- negative mortality S probability")
+          if(any(inds$p_survI<0)) print("oh no -- negative mortality I probability")
+          # coin flips
+          inds$mortalityS <- vapply(inds$p_survS, function(x) rbinom(1, 1, x), as.integer(1L))
+          inds$mortalityI <- vapply(inds$p_survI, function(x) rbinom(1, 1, x), as.integer(1L))
           # get mortality phenotype: infects
-          tmpI <- inds %>% filter(inf_stat == "I") %>% filter(mI_pheno < mortalityI)
-          tmpS <- inds %>% filter(inf_stat == "S" | inf_stat == "R") %>% filter(mS_pheno < mortalityS)
+          tmpI <- inds %>% filter(inf_stat == "I") %>% filter(mortalityI==1)
+          tmpS <- inds %>% filter(inf_stat == "S" | inf_stat == "R") %>% filter(mortalityS==1)
           inds <- rbind(tmpI, tmpS)
-          inds <- inds[, 1:11]
+          inds <- inds[, 1:7]
         }
         if (events[j]=="G" & compartments !="SIX") {
           # get recovery phenotype
-          inds$change_stat <- (1-exp(-inds$r_pheno)) > inds$recovery
+          inds$p_recovery <- (1-exp(-inds$r_pheno))
+          if(any(inds$p_recovery<0)) {print("oh no -- negative recovery probability in ngen loop"); print(i)}
+          # coin flip
+          inds$change_stat <- vapply(inds$p_recovery, function(x) rbinom(1, 1, x), as.integer(1L))
           # get I --> not I list
-          tmpI <- inds %>% filter(inf_stat=="I" & change_stat==T)
-          if (dim(tmpI)[1] > 0) tmpI$inf_stat <- ifelse(compartments=="SIR", "R", "S")
+          tmpI <- inds %>% filter(inf_stat=="I" & change_stat==1)
+          if (dim(tmpI)[1] > 0) tmpI$inf_stat <- ifelse(compartments=="SIR", "R", "S") # if it's not SIR, it's SIS
           # everyone else
-          tmpS <- inds %>% filter(inf_stat!="I" | (inf_stat=="I" & change_stat==F))
+          tmpS <- inds %>% filter(inf_stat!="I" | (inf_stat=="I" & change_stat==0))
           # recombine
           inds <- rbind(tmpS, tmpI)
-          inds <- inds[, 1:11]
+          inds <- inds[, 1:7]
         }
       }
       
@@ -356,6 +390,7 @@ run_gens <- function(parm_vect, ngens, bnum) { # pop size and gen time info
       }
       off_dat <- NULL
       # if there are 2+ gametes, create offspring
+      # add some mutation
       if (length(gamts) > 1 & K_stoch-length(inds$ind_num) > 0) {
         # draw them, limiting by stochastic K
         off_gamts <- sample(gamts, 
@@ -363,6 +398,9 @@ run_gens <- function(parm_vect, ngens, bnum) { # pop size and gen time info
                             replace=FALSE)
         # only take even number: if odd length, drop the last one
         if (length(off_gamts)%%2==1) off_gamts <- off_gamts[1:length(off_gamts)-1]
+        # mutate some
+        muts <- rbinom(length(off_gamts), 1, mut_rate) # 1 = does mutate
+        off_gamts[which(muts==1)] <- ifelse(off_gamts[which(muts==1)] == "W", "R", "W")
         # grab pairs
         off_genos <- NULL
         for (n in 1:(length(off_gamts)/2)) {
@@ -394,16 +432,26 @@ run_gens <- function(parm_vect, ngens, bnum) { # pop size and gen time info
                                   ifelse(off_dat$ind_geno[p] == "RR", rnorm(1, mean=r_RR, sd=r_sd),
                                                                          rnorm(1, mean=r_WR, sd=r_sd)))
         }
-        off_dat$mI_pheno = ifelse(off_dat$mI_pheno<0, off_dat$mS_pheno, off_dat$mS_pheno+off_dat$mI_pheno)
+        
         # check for any below 0, change to positive
         if (any(off_dat<0)) {
           index_neg <- which(off_dat<0)
           for (i in 1:length(index_neg)) {
             col_num <- ceiling(index_neg[i]/dim(off_dat)[1])
             row_num <- index_neg[i]%%dim(off_dat)[1]
+            if (row_num == 0) {row_num <- dim(off_dat[1])}
             off_dat[row_num,col_num] <- 0
           }
         }
+        
+        # double check to toss error
+        if (any(off_dat<0)) {
+          print("offspring error")
+          break
+        }
+        
+        off_dat$mI_pheno = ifelse(off_dat$mI_pheno<0, off_dat$mS_pheno, off_dat$mS_pheno+off_dat$mI_pheno)
+        
       }
       
       # combine parents and offspring
