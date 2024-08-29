@@ -1,0 +1,26 @@
+{
+    "id": "2B142462",
+    "path": "~/GitHub/evorescue_hostpath_str/model.R",
+    "project_path": "model.R",
+    "type": "r_source",
+    "hash": "2333134866",
+    "contents": "",
+    "dirty": false,
+    "created": 1724858888001.0,
+    "source_on_save": false,
+    "relative_order": 1,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "164,0",
+        "scrollLine": "197"
+    },
+    "folds": "61|22|68|4|\n96|30|104|6|\n291|35|324|6|\n",
+    "lastKnownWriteTime": 1724900492,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1724900492643,
+    "read_only": false,
+    "read_only_alternatives": []
+}
