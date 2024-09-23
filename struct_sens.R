@@ -2,7 +2,6 @@
 
 library(dplyr) # organizing data
 library(randomForest) # sensitivity
-library(lhs) # sensitivity
 library(ggplot2)
 library(parallel)
 library(foreach)
