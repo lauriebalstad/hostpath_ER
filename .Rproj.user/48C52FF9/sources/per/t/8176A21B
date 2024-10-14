@@ -3,7 +3,7 @@
     "path": "~/GitHub/evorescue_hostpath_str/figures/exploratory_figs.R",
     "project_path": "figures/exploratory_figs.R",
     "type": "r_source",
-    "hash": "0",
+    "hash": "1967430681",
     "contents": "",
     "dirty": false,
     "created": 1727973551939.0,
@@ -12,8 +12,8 @@
     "properties": {
         "source_window_id": "",
         "Source": "Source",
-        "cursorPosition": "15,1",
-        "scrollLine": "0"
+        "cursorPosition": "247,37",
+        "scrollLine": "236"
     },
     "folds": "",
     "lastKnownWriteTime": 1727745704,

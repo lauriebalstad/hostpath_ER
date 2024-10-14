@@ -1,9 +1,0 @@
-exs <- read.csv("~/00_ER_example_table.csv")
-
-exs$VibeRecode <- recode(exs$Vibe, "great" = "strong", "good" = "moderate", "eh" = "minimal")
-
-ggplot(exs, aes(Stressor, stat = "count", fill = VibeRecode)) + 
-  geom_bar() + 
-  scale_fill_manual(values = c("#f1c4a2","#DB6341","#ac1457")) + 
-  theme_bw() + theme(legend.position = "bottom") + 
-  labs(x = "Stressor type", y = NULL, fill = "Case strength")

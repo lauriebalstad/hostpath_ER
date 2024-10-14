@@ -331,7 +331,7 @@ cluster_run <- function(parm_vect, ngens) { # pop size and gen time info
         S_size <- c(S_size, dim(inds%>%filter(inf_stat=="S"))[1]) # some Ss
         I_size <- c(I_size, dim(inds%>%filter(inf_stat=="I"))[1]) # some Is
         R_size <- c(R_size, dim(inds%>%filter(inf_stat=="R"))[1]) # some Rs
-        K_size <- c(K_size, K_stoch) # carrying capacity
+        K_size <- c(K_size, K_stoch) # carrying capacity -- note repeating K_stoch!
         r_allele <- c(r_allele, r_freq) # r allele
         
         
@@ -524,10 +524,13 @@ cluster_run <- function(parm_vect, ngens) { # pop size and gen time info
     
     output_dat <- c(# things to decide if ER occured
       extinct <- extinct_dummy, # did the population go extinct? T/F
-      pop_drop60 <- any(S_size[(d_0):length(S_size)]+I_size[(d_0):length(I_size)]+R_size[(d_0):length(I_size)] < K_size[(d_0):length(I_size)]*0.60), # did the population drop? T/F
-      pop_drop85 <- any(S_size[(d_0):length(S_size)]+I_size[(d_0):length(I_size)]+R_size[(d_0):length(I_size)] < K_size[(d_0):length(I_size)]*0.85), # did the population drop? T/F
       at_K95 <- ifelse(extinct_dummy, FALSE, any(0.95*tail(K_size, 15)<=tail(S_size+I_size+R_size, 15))), # did we get back up? note that if extinct, will use start of time series (not good!)
-      r_allele_peak <- any(r_allele > 0.4), # did the allele spread at any point?
+      pop_drop20 <- any(S_size[(d_0):length(S_size)]+I_size[(d_0):length(I_size)]+R_size[(d_0):length(I_size)] < K_size[(d_0):length(I_size)]*0.20), # did the population drop? T/F
+      pop_drop50 <- any(S_size[(d_0):length(S_size)]+I_size[(d_0):length(I_size)]+R_size[(d_0):length(I_size)] < K_size[(d_0):length(I_size)]*0.50), # did the population drop? T/F
+      pop_drop80 <- any(S_size[(d_0):length(S_size)]+I_size[(d_0):length(I_size)]+R_size[(d_0):length(I_size)] < K_size[(d_0):length(I_size)]*0.80), # did the population drop? T/F
+      r_allele_peak15 <- any(r_allele > 0.15), # did the allele spread at any point?
+      r_allele_peak45 <- any(r_allele > 0.45), # did the allele spread at any point?
+      r_allele_peak75 <- any(r_allele > 0.75), # did the allele spread at any point?
       # pop gen outcomes
       final_r_allele <- mean(tail(r_allele, 15), na.rm = TRUE), # average r allele frequency by end of simulation
       final_pop_size <- mean(tail(S_size+I_size+R_size, 15), na.rm = TRUE),
