@@ -17,7 +17,7 @@ num_parms <- 24 # only need 27 unique parameters because some repeat by defintio
 
 mat <- randomLHS(n = N, k = num_parms) 
 # need to update the matrices so that the right sorts of things are in the matrix
-parm_mat <- matrix(NA, 2000, 30)
+parm_mat <- matrix(NA, 2000, 31)
 # fill in parm_mat
 parm_mat[,1] <- rep(2, 2000) # hold at SIS, vect[1] = 2
 parm_mat[,2] <- rep(2, 2000) # hold event order BGM
@@ -45,14 +45,19 @@ parm_mat[,24] <- qnorm(mat[,16], 2.1, 0.1) # WW: population should grow, on aver
 parm_mat[,22] <- parm_mat[,24]*mat[,16] # RR: let mat[,22] be the cost
 parm_mat[,23] <- qunif(mat[,17],min=parm_mat[,22],max=parm_mat[,24])
 parm_mat[,25] <- qnorm(mat[,19], 0.1, 0.02) # compress l_sd 
-parm_mat[,26] <- qnorm(mat[,20], 0.01, 0.001) # mutation rate really little! 
-parm_mat[,27] <- qnorm(mat[,21], 110, 5) # K
-parm_mat[,28] <- qnorm(mat[,22], 3, 1) # keep K sd pretty small
+parm_mat[,26] <- qnorm(mat[,20], 0.0075, 0.002) # mutation rate really little! 
+parm_mat[,27] <- qunif(mat[,21], min = 70, max = 700) # K -- give good range
+parm_mat[,28] <- qnorm(mat[,22], 4, 1) # keep K sd pretty small?
 parm_mat[,29] <- ceiling(qunif(mat[,23], 0, 3)) # 1-3 disease cycles
-parm_mat[,30] <- ceiling(qunif(mat[,24], 70, 100)) # ngens between 70-100
+parm_mat[,30] <- ceiling(qunif(mat[,24], 120, 140)) # ngens between 70-100
 
 # check for zeros & replace them
 parm_mat[which(parm_mat<0)] = 0
+
+# indexing
+parm_mat[,31] <- 1:N # this will be parm_num
+
+# then will need to repeat the data frame 500 times, bc need 500 sims per parameter combination
 
 # saved as sensitivity_data/mat_var.RDS
 saveRDS(parm_mat, "sensitivity/mat_var.rds")

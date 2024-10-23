@@ -1,26 +1,26 @@
 {
     "id": "8176A21B",
-    "path": "~/GitHub/evorescue_hostpath_str/figures/exploratory_figs.R",
-    "project_path": "figures/exploratory_figs.R",
+    "path": "~/GitHub/evorescue_hostpath_str/figures/main_figs.R",
+    "project_path": "figures/main_figs.R",
     "type": "r_source",
-    "hash": "1967430681",
+    "hash": "1002557375",
     "contents": "",
     "dirty": false,
     "created": 1727973551939.0,
     "source_on_save": false,
-    "relative_order": 3,
+    "relative_order": 4,
     "properties": {
         "source_window_id": "",
         "Source": "Source",
-        "cursorPosition": "247,37",
-        "scrollLine": "236"
+        "cursorPosition": "148,49",
+        "scrollLine": "136"
     },
-    "folds": "",
-    "lastKnownWriteTime": 1727745704,
+    "folds": "158|18|191|0|\n",
+    "lastKnownWriteTime": 1729642519,
     "encoding": "UTF-8",
     "collab_server": "",
     "source_window": "",
-    "last_content_update": 1727745704,
+    "last_content_update": 1729642519190,
     "read_only": false,
     "read_only_alternatives": []
 }

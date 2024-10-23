@@ -8,7 +8,7 @@ library(dplyr)
 
 # so for the cluster, want to send just one rep and then get back summary stats 
 
-cluster_run <- function(parm_vect, ngens) { # pop size and gen time info
+cluster_run <- function(parm_vect, ngens, parm_num) { # pop size and gen time info
   
   # note this takes in a compartment structure SIS, SIX, SIR 
   # second takes in an order: events order (e1, e2, e3) (B,M,R)
@@ -524,7 +524,6 @@ cluster_run <- function(parm_vect, ngens) { # pop size and gen time info
     
     output_dat <- c(# things to decide if ER occured
       extinct <- extinct_dummy, # did the population go extinct? T/F
-      at_K95 <- ifelse(extinct_dummy, FALSE, any(0.95*tail(K_size, 15)<=tail(S_size+I_size+R_size, 15))), # did we get back up? note that if extinct, will use start of time series (not good!)
       pop_drop20 <- any(S_size[(d_0):length(S_size)]+I_size[(d_0):length(I_size)]+R_size[(d_0):length(I_size)] < K_size[(d_0):length(I_size)]*0.20), # did the population drop? T/F
       pop_drop50 <- any(S_size[(d_0):length(S_size)]+I_size[(d_0):length(I_size)]+R_size[(d_0):length(I_size)] < K_size[(d_0):length(I_size)]*0.50), # did the population drop? T/F
       pop_drop80 <- any(S_size[(d_0):length(S_size)]+I_size[(d_0):length(I_size)]+R_size[(d_0):length(I_size)] < K_size[(d_0):length(I_size)]*0.80), # did the population drop? T/F
@@ -534,7 +533,6 @@ cluster_run <- function(parm_vect, ngens) { # pop size and gen time info
       # pop gen outcomes
       final_r_allele <- mean(tail(r_allele, 15), na.rm = TRUE), # average r allele frequency by end of simulation
       final_pop_size <- mean(tail(S_size+I_size+R_size, 15), na.rm = TRUE),
-      first_K95 <- d_0 + r_0 + which(S_size[(d_0 + r_0):length(S_size)]+I_size[(d_0+r_0):length(I_size)]+R_size[(d_0+r_0):length(R_size)]>=0.95*K_size[(d_0+r_0):length(K_size)])[1],
       # disease outcomes
       final_inf_prev <- mean(tail(I_size/(S_size+I_size+R_size), 15), na.rm = TRUE), # helps determine if I was lost
       # get the extremes
@@ -543,7 +541,11 @@ cluster_run <- function(parm_vect, ngens) { # pop size and gen time info
       max_inf_prev <- max(I_size/(S_size+I_size+R_size), na.rm = TRUE),
       time_last_zero_inf <- sum(c(d_0,  which(I_size[d_0+1:length(I_size)]/(S_size[d_0+1:length(S_size)]+I_size[d_0+1:length(I_size)]+R_size[d_0+1:length(I_size)])==0)[1]), na.rm = T), # only care about post-disease
       min_pop <- min(S_size[(d_0):length(S_size)]+I_size[(d_0):length(I_size)]+R_size[(d_0):length(I_size)], na.rm = TRUE), # only care about post-disease min size
-      time_min_pop <- which(S_size+I_size+R_size == min_pop)[1] # time that min pop was hit
+      time_min_pop <- which(S_size+I_size+R_size == min_pop)[1], # time that min pop was hit
+      # did recvoery happen AFTER min_pop?
+      at_K95 <- ifelse(extinct_dummy, FALSE, any(0.95*K_size[time_min_pop:length(K_size)]<=S_size[time_min_pop:length(S_size)]+I_size[time_min_pop:length(I_size)]+R_size[time_min_pop:length(R_size)])),  # did we get back up? note that if extinct, will use start of time series (not good!)
+      first_K95 <- time_min_pop + which(S_size[time_min_pop:length(S_size)]+I_size[time_min_pop:length(I_size)]+R_size[time_min_pop:length(R_size)]>=0.95*K_size[time_min_pop:length(K_size)])[1],
+      parm_number <- parm_num 
     )
   
   

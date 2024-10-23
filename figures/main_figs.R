@@ -4,16 +4,17 @@ library(ggplot2)
 library(viridis)
 
 base_vect <- c(2, 2, 1, # SIS, BGM, density
-               15, 10, # timing things
+               100, 0, # timing things -- no wait between mutation and non-mutation
                1, 1, 1, 0.05, # 6-9: transmission
                0.05, 0.05, 0.05, # background mort + 16
                1, 1, 1, # 13-15 + 17: disease mort
                0.01, 0.02, # mort sd
                0.05, 0.05, 0.05, 0.01, # 18-21: recovery, unused bc SIX (1)
-               1.75, 1.75, 2, 0.2, 0.01, # reproduction & mutation
+               1.5, 1.75, 2, 0.2, 0.005, # reproduction & mutation -- try smaller number
                100, 4, # carrying capacity things 
                1) # nubmer of disease cycles per gen -- tyring 2
 # nb: in base case, no benefit of allele, but cost is fixed
+# nb: disease ngens = 150
 
 # so.... fig 1 will be comparision of structure across base model
 cases <- expand.grid("transmission type" = 1:2, 
@@ -24,17 +25,17 @@ cases <- cases[c(1:12, 15:24), ]
 sim_dat <- NULL # this is where everything will get stored
 
 # doing parallel
-cl <- parallel::makeCluster(detectCores())
+cl <- parallel::makeCluster(detectCores()-1)
 doParallel::registerDoParallel(cl)
 
-for (case in 1:30){
+for (case in 19:22){
   
   print(case) # for error id and to check in
   
   case_vect <- base_vect
   # if transmission type is frequency (2), need to increase baseline transmission a bit
   if (cases$`transmission type`[case] == 2) {
-    case_vect[6:8] <- 2 # transmission increased
+    case_vect[6:8] <- 3 # transmission increased
   }
   if (cases$robustness[case] == 1) {
     case_vect[13] <- 0
@@ -49,26 +50,22 @@ for (case in 1:30){
     case_vect[19] <- 0.5
   } # 1 = recovery, nb: recovery higher
   
-  if (cases$robustness[case] == 4) {
-    
-    case_vect <- base_vect # no robustness
-    
-    # demographics only...
-    case_vect[22:24] <- 2 # no cost 
-    
-    # and make sure that if frequency dependent, things are set up correctly
-    if (cases$`transmission type`[case] == 2) {
-      case_vect[6:8] <- 3 # WW transmission increased
-    }
-    
-  } # make sure that everything is reset...
+  # 4 = no robustness, only change tranmission and such...
+  # if (cases$robustness[case] == 4) {
+  #   
+  #   case_vect <- base_vect # no robustness
+  #   
+  #   # # demographics only...
+  #   # case_vect[22:24] <- 2 # no cost?
+  #   
+  # } # make sure that everything is reset...
   
   # modify base parameters
   case_vect[3] <- cases$`transmission type`[case] # since numbers have meaning
   case_vect[1] <- cases$compartments[case] # diddo
   
   # run simulation
-  case_dat <- run_gens(case_vect, 70, 500)
+  case_dat <- run_gens(case_vect, 150, 500)
   
   # save connect to case info
   case_dat$`transmission type` <- rep(cases$`transmission type`[case])
@@ -86,19 +83,20 @@ stopCluster(cl)
 fig1_dat <- sim_dat # G = 0.05
 
 # save things!
-saveRDS(fig1_dat, file = "figure_data/fig1_dat.rds")
+saveRDS(fig1_dat, file = "figures/figure_data/fig1_dat.rds")
 
+# colnames(sim_dat)[19] <- "init_R"
 # get summaries to plot
 prob_dat <- sim_dat %>% group_by(compartments, `transmission type`, robustness) %>% 
-  summarize(`P(extinct)` = sum(extinct)/n()) #,
-            # `P(decline)` = sum(pop_drop)/n(), # note for frequency dependent, force of infection is much much lower... think about how to make these more equalivalent
+  summarize(`P(extinct)` = sum(extinct)/n(), #,
+            `P(decline)` = sum(pop_drop50)/n()) # note for frequency dependent, force of infection is much much lower... think about how to make these more equalivalent
             # `P(population\nrecovery)` = sum(at_K95)/n(), # did the population recover?
             # `P(allele > 0.4)` = sum(r_allele_peak, na.rm = T)/n(), 
             # `P(lost disease)` = length(which(final_inf_prev == 0))/n())
-er_dat <- sim_dat %>% filter(extinct == 0 & pop_drop85 == 1 & at_K95 == 1 & r_allele_peak == 1) %>% 
+er_dat <- sim_dat %>% filter(extinct == 0 & pop_drop50 == 1 & at_K95 == 1 & r_allele_peak45 == 1) %>% 
   group_by(compartments, `transmission type`, robustness) %>% 
   summarize(`P(rescue:\nevolutionary)` = n()/500)
-dr_dat <- sim_dat %>% filter(extinct == 0 & pop_drop85 == 1 & at_K95 == 1 & r_allele_peak == 0) %>% 
+dr_dat <- sim_dat %>% filter(extinct == 0 & pop_drop50 == 1 & at_K95 == 1 & r_allele_peak45 == 0) %>% 
   group_by(compartments, `transmission type`, robustness) %>% 
   summarize(`P(rescue:\ndemographic)` = n()/500)
 # merge
@@ -109,23 +107,23 @@ plot_dat$compartments <- recode(plot_dat$compartments, "1" = "SIX", "2" = "SIS",
 plot_dat$`transmission type` <- recode(plot_dat$`transmission type`, "1" = "density", "2" = "frequency")
 plot_dat$robustness <- recode(plot_dat$robustness, "1" = "\u03bc", "2" = "\u03b2", "3" = "\u03d2", "4" = "N")
 # convert to long -- note 4:10 for all the things
-plot_long <- pivot_longer(plot_dat, cols = 4:6, names_to = "outcome", values_to = "value")
+plot_long <- pivot_longer(plot_dat, cols = 4:7, names_to = "outcome", values_to = "value")
 plot_long$value <- ifelse(is.na(plot_long$value), 0, plot_long$value)
 # points plot -- also show varience? or issue with number of simulations?
-ggplot(plot_long, aes(robustness, value, col = `transmission type`)) + 
+fig1 <- ggplot(plot_long, aes(robustness, value, col = `transmission type`)) + 
   geom_hline(data = plot_long %>% filter(robustness == "N"), aes(yintercept = value), col = "gray70", lty = "dashed") + 
   geom_point(size = 3) + scale_color_manual(values = c("#ac1457", "#f1c4a2")) +
-  facet_grid(rows = vars(compartments), cols = vars(outcome)) + 
+  facet_grid(rows = vars(outcome), cols = vars(compartments)) + 
   labs(x = "Evolutionary benefit", y = "Probability", col = "Transmission type") + 
   theme_bw()  + 
   theme(text = element_text(size = 16), legend.position = "bottom") 
 # for box plots, need full data set!
-tmp <- sim_dat %>% filter(extinct == 0 & pop_drop85 == 1 & at_K95 == 1 & r_allele_peak == 1 & robustness != 4) 
-sim_long <- pivot_longer(tmp, cols = 1:14, names_to = "outcome", values_to = "value") %>% 
+tmp <- sim_dat %>% filter(extinct == 0 & pop_drop80 == 1 & at_K95 == 1 & r_allele_peak15 == 1 & robustness != 4) 
+sim_long <- pivot_longer(tmp, cols = 1:18, names_to = "outcome", values_to = "value") %>% 
   filter(outcome %in% c("final_r_allele", # "max_r_allele", 
                         "final_inf_prev", # "max_inf_prev", 
                         # "final_pop_size", 
-                        "first_K95")) # since only ER cases, don't really care about pop outcomes? should get time first at K
+                        "firstK95")) # since only ER cases, don't really care about pop outcomes? should get time first at K
 sim_long$compartments <- recode(sim_long$compartments, "1" = "SIX", "2" = "SIS", "3" = "SIR")
 sim_long$`transmission type` <- recode(sim_long$`transmission type`, "1" = "density", "2" = "frequency")
 sim_long$robustness <- recode(sim_long$robustness, "1" = "\u03bc", "2" = "\u03b2", "3" = "\u03d2", "4" = "N")
@@ -142,7 +140,7 @@ ggplot(sim_long %>% filter(compartments == "SIX"), aes(x = robustness, y = value
 ggplot(sim_long %>% filter(compartments == "SIS"), aes(x = robustness, y = value, col = `transmission type`)) + 
   # geom_hline(data = plot_long %>% filter(robustness == "N"), aes(yintercept = median(value)), col = "gray70", lty = "dashed") + 
   geom_boxplot() + scale_color_manual(values = c("#ac1457", "#f1c4a2")) +
-  facet_wrap(~outcome, scales = "free_y", nrow = 2) + 
+  facet_wrap(~outcome, scales = "free_y", nrow = 1) + 
   labs(x = "Evolutionary benefit", y = NULL, col = "Transmission type") + 
   theme_bw() + theme(text = element_text(size = 16), legend.position = "bottom") + 
   coord_cartesian(ylim = c(0, NA))
@@ -199,20 +197,20 @@ stopCluster(cl)
 fig2_dat <- cb_dat # G = 0.05
 
 # save things!
-saveRDS(fig2_dat, file = "figure_data/fig2_dat.rds")
+saveRDS(fig2_dat, file = "figures/figure_data/fig2_dat.rds")
 
 # get summaries to plot -- P(ER) + T_K + max/final R/inf (6) for the ER cases only
-er_dat <- cb_dat %>% filter(extinct == 0 & pop_drop == 1 & at_K95 == 1 & r_allele_peak == 1) %>% 
+er_dat <- cb_dat %>% filter(extinct == 0 & pop_drop50 == 1 & at_K95 == 1 & r_allele_peak45 == 1) %>% 
   group_by(benefit, cost, case) %>% 
   summarize(`P(rescue: evolutionary)` = n()/500, 
             `final R allele` = mean(final_r_allele), 
             `max R allele` = mean(max_r_allele),
             `final inf prev` = mean(final_inf_prev),
             `max inf prev` = mean(max_inf_prev), 
-            `time to K` = mean(first_K95))
+            `time to K` = mean(firstK95))
 cb_summ_long <- pivot_longer(er_dat, cols= 4:9, names_to = "outcome", values_to = "value")
-cb_all_long <- pivot_longer(cb_dat %>% filter(extinct == 0 & pop_drop == 1 & at_K95 == 1 & r_allele_peak == 1) %>% select(c(6, 12, 8:10, 16:18)), 
-                            cols = 1:5, names_to = "outcome", values_to = "value")
+cb_all_long <- pivot_longer(cb_dat %>% filter(extinct == 0 & pop_drop50 == 1 & at_K95 == 1 & r_allele_peak45 == 1) %>% select(c(8, 10, 18:21)), 
+                            cols = 1:3, names_to = "outcome", values_to = "value")
 ggplot(NULL, aes(x=as.factor(benefit), y=value, col = as.factor(cost))) + 
   geom_boxplot(data = cb_all_long) + 
   geom_point(data = cb_summ_long %>% filter(outcome == "P(rescue: evolutionary)"), size = 3) + scale_color_manual(values = c("#ac1457", "#f1c4a2")) + 
