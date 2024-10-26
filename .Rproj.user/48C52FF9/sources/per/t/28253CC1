@@ -1,7 +1,7 @@
 {
     "id": "28253CC1",
-    "path": "~/GitHub/evorescue_hostpath_str/figures/timeseries_figs.R",
-    "project_path": "figures/timeseries_figs.R",
+    "path": "~/GitHub/evorescue_hostpath_str/figures/plt_ts.R",
+    "project_path": "figures/plt_ts.R",
     "type": "r_source",
     "hash": "3336134926",
     "contents": "",
@@ -11,7 +11,9 @@
     "relative_order": 8,
     "properties": {
         "source_window_id": "",
-        "Source": "Source"
+        "Source": "Source",
+        "cursorPosition": "53,32",
+        "scrollLine": "47"
     },
     "folds": "",
     "lastKnownWriteTime": 1727465905,
