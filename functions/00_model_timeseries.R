@@ -5,8 +5,11 @@ library(doParallel)
 
 ts_data <- function(parm_vect, ngens) { # pop size and gen time info
   
+  # note this takes in a compartment structure SIS, SIX, SIR 
+  # second takes in an order: events order (e1, e2, e3) (B,M,R)
+  # and then all the parameters
   comp_str <- parm_vect[1]; event_order <- parm_vect[2]; trans_type <- parm_vect[3] # structural
-  d_0 <- parm_vect[4]; r_0 <- parm_vect[5] # disease intro and allele intro
+  d_0 <- floor(parm_vect[4]/parm_vect[29]); r_0 <- parm_vect[5] # disease intro and init allele freq.
   b_RR <- parm_vect[6]; b_WR <- parm_vect[7]; b_WW <- parm_vect[8]; b_sd <- parm_vect[9] # transmission
   m_SRR <- parm_vect[10]; m_SWR <- parm_vect[11]; m_SWW <- parm_vect[12]; m_IRR <- parm_vect[13]; m_IWR <- parm_vect[14]; m_IWW <- parm_vect[15]; m_Ssd <- parm_vect[16]; m_Isd <- parm_vect[17] # mortality
   r_RR <- parm_vect[18]; r_WR <- parm_vect[19]; r_WW <- parm_vect[20]; r_sd <- parm_vect[21] # recovery
@@ -40,8 +43,6 @@ ts_data <- function(parm_vect, ngens) { # pop size and gen time info
   K_size <- NULL # vector of K, to compare if K has been reached
   r_allele <- NULL # vector of R allele freq through time
   
-  extinct_dummy <- FALSE
-  
   # make allele pool for genotypes
   init_allele <- sample(c("W", "R"), size = 2*N, prob = c(1-r_0, r_0), replace = T)
   init_genos <- NULL
@@ -74,7 +75,6 @@ ts_data <- function(parm_vect, ngens) { # pop size and gen time info
       inds[row_num,col_num] <- 0
     }
   }    
-  
   # note mI_pheno is additional to mS_pheno --> address here
   inds$mI_pheno = inds$mS_pheno+inds$mI_pheno # m_I is a bonus mortality, should only increase mortality
   
@@ -82,19 +82,15 @@ ts_data <- function(parm_vect, ngens) { # pop size and gen time info
   
   # pre-disease intro
   for (p in 1:d_0) {
-    
     # draw K first
     K_stoch = floor(rnorm(1, mean=K, sd=K_sd))
-
     r_freq <- (2*length(which(inds$ind_geno == "RR"))+length(which(inds$ind_geno == "WR")))/(2*length(inds$ind_geno == "WW"))
-    
-    # save things after each disease cycle -- note this is censusing BEFORE reproduction!
-    S_size <- c(S_size, dim(inds%>%filter(inf_stat=="S"))[1]) # some Ss
-    I_size <- c(I_size, dim(inds%>%filter(inf_stat=="I"))[1]) # some Is
-    R_size <- c(R_size, dim(inds%>%filter(inf_stat=="R"))[1]) # some Rs
+    # save things -- pre reproduction
+    S_size <- c(S_size, dim(inds)[1]) # only Ss
+    I_size <- c(I_size, 0) # no Is
+    R_size <- c(R_size, 0) # no Rs
     K_size <- c(K_size, K_stoch) # carrying capacity
-    r_allele <- c(r_allele, r_freq) # r allele
-    
+    r_allele <- c(r_allele, r_freq) # no r allele
     
     # no disease
     # so just mortality
@@ -242,6 +238,7 @@ ts_data <- function(parm_vect, ngens) { # pop size and gen time info
   inds$inf_stat[sample(1:length(inds$ind_num), inf_inds, replace = F)] <- "I"
   
   for (i in 1:ngens) {
+    
     # draw probabilities for all process each year --> need to truncate at 0?
     # phenotypes stay the same
     
@@ -263,13 +260,13 @@ ts_data <- function(parm_vect, ngens) { # pop size and gen time info
     for (disease_cycle in 1:disease_cycles){
       
       r_freq <- (2*length(which(inds$ind_geno == "RR"))+length(which(inds$ind_geno == "WR")))/(2*length(inds$ind_geno == "WW"))
-      
       # save things after each disease cycle -- note this is censusing BEFORE reproduction!
       S_size <- c(S_size, dim(inds%>%filter(inf_stat=="S"))[1]) # some Ss
       I_size <- c(I_size, dim(inds%>%filter(inf_stat=="I"))[1]) # some Is
       R_size <- c(R_size, dim(inds%>%filter(inf_stat=="R"))[1]) # some Rs
       K_size <- c(K_size, K_stoch) # carrying capacity
       r_allele <- c(r_allele, r_freq) # r allele
+      
       
       for (j in 1:length(events)) {
         
@@ -337,9 +334,11 @@ ts_data <- function(parm_vect, ngens) { # pop size and gen time info
         }
       }
       
+      
     }
     
     if (dim(inds)[1] == 0) {
+      # print(c(i, "everyone dead after disease dynamics"))
       extinct_dummy <- TRUE # pop is extinct
       S_size <- c(S_size, 0) # no Ss
       I_size <- c(I_size, 0) # no Is
@@ -435,8 +434,8 @@ ts_data <- function(parm_vect, ngens) { # pop size and gen time info
       if (is.null(dim(off_dat))) off_dat <- NULL
     }
     
-    dim(inds)
-    dim(off_dat)
+    # dim(inds)
+    # dim(off_dat)
     
     # combine parents and offspring
     inds <- rbind(inds[,1:7], off_dat)

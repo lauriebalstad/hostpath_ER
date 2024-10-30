@@ -261,3 +261,61 @@ cyc_ord_dat <- dc_dat # G = 0.05
 
 # save things!
 saveRDS(cyc_ord_dat, file = "figures/figure_data/cyc_ord_dat.rds")
+
+
+#-----FIG4: DISEASE FORCE-----
+# other variable to check in the number of disease cycles between reproductions
+sis_df <- expand.grid("mortality rate" = seq(from = 0.75, to = 2.25, length.out = 7), # probably provides enough insight...
+                      "transmission type" = c(1),
+                      "transmission rate" = c(1, 2)) # prelim suggests transmission types are similar
+df_dat <- NULL # this is where everything will get stored
+
+# doing parallel
+cl <- parallel::makeCluster(detectCores())
+doParallel::registerDoParallel(cl)
+
+for (case in 1:14){
+  
+  print(case) # for error id and to check in
+  
+  case_vect <- base_vect
+  case_vect[1] <- 2 # SIS
+  
+  case_vect[13:15] <- sis_df$`mortality rate`[case]
+  ifelse(sis_df$`transmission type`[case] == 1, 
+  case_vect[6:8] <- sis_df$`transmission rate`[case], 
+  case_vect[6:8] <- 2*sis_df$`transmission rate`[case] # frequency dependence uses higher forcing
+  )
+  
+  # # if mortality
+  # case_vect[13] <- 0
+  # case_vect[14] <- 0.5
+  
+  # if recovery
+  case_vect[18] <- 1
+  case_vect[19] <- 0.5
+
+  # modify base parameters
+  case_vect[3] <- sis_df$`transmission type`[case] # since numbers have meaning
+
+  # run simulation
+  case_dat <- run_gens(case_vect, 150, 500)
+  
+  # save connect to case info
+  case_dat$`transmission type` <- rep(sis_df$`transmission type`[case])
+  case_dat$`base transmission rate` <- rep(sis_df$`transmission rate`[case])
+  case_dat$`true transmission rate` <- rep(case_vect[6])
+  case_dat$`mortality rate` <- rep(sis_df$`mortality rate`[case])
+  
+  # then append to sim_dat
+  df_dat <- rbind(df_dat, case_dat)
+  
+}
+
+# end parallel cluster
+stopCluster(cl)
+
+dis_force_dat <- df_dat # G = 0.05
+
+# save things!
+saveRDS(dis_force_dat, file = "figures/figure_data/dis_force_dat.rds")

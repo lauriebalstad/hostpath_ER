@@ -1,12 +1,20 @@
-library(dplyr)
-library(parallel)
-library(foreach)
-library(doParallel)
+# model code
+# looking at many types of structural uncertainity:
+# 1. SIX, SIS, SIR (3)
+# 2. different orders of transmission B/recovery G/mortality M (6 combos)
+# 3. alternative types of resistance (3)
 
-ts_data <- function(parm_vect, ngens) { # pop size and gen time info
+library(dplyr)
+
+# so for the cluster, want to send just one rep and then get back summary stats 
+
+cluster_run <- function(parm_vect) { # pop size and gen time info
   
+  # note this takes in a compartment structure SIS, SIX, SIR 
+  # second takes in an order: events order (e1, e2, e3) (B,M,R)
+  # and then all the parameters
   comp_str <- parm_vect[1]; event_order <- parm_vect[2]; trans_type <- parm_vect[3] # structural
-  d_0 <- parm_vect[4]; r_0 <- parm_vect[5] # disease intro and allele intro
+  d_0 <- floor(parm_vect[4]/parm_vect[29]); r_0 <- parm_vect[5] # disease intro and init allele freq.
   b_RR <- parm_vect[6]; b_WR <- parm_vect[7]; b_WW <- parm_vect[8]; b_sd <- parm_vect[9] # transmission
   m_SRR <- parm_vect[10]; m_SWR <- parm_vect[11]; m_SWW <- parm_vect[12]; m_IRR <- parm_vect[13]; m_IWR <- parm_vect[14]; m_IWW <- parm_vect[15]; m_Ssd <- parm_vect[16]; m_Isd <- parm_vect[17] # mortality
   r_RR <- parm_vect[18]; r_WR <- parm_vect[19]; r_WW <- parm_vect[20]; r_sd <- parm_vect[21] # recovery
@@ -14,6 +22,8 @@ ts_data <- function(parm_vect, ngens) { # pop size and gen time info
   K <- parm_vect[27]; K_sd <- parm_vect[28] # carrying capacity
   N <- parm_vect[27] # number of individuals at start of simulation, all WW -- start at K
   disease_cycles <- parm_vect[29] # number of times to go through disease between reproduction cycles
+  ngens <- parm_vect[30]
+  parm_num <- parm_vect[31]
   
   # get compartmetns
   if(comp_str == 1) compartments <- c("SIX")
@@ -32,6 +42,8 @@ ts_data <- function(parm_vect, ngens) { # pop size and gen time info
   if(trans_type == 1) trans_form <- c("density")
   if(trans_type == 2) trans_form <- c("freq")
   
+  # go through the running process
+    
   # storage vectors for across simulations: will turn into a list and then rbind lists together
   extinct <- NULL # did the population go extinct? T/F
   S_size <- NULL # vector of S individuals
@@ -39,8 +51,6 @@ ts_data <- function(parm_vect, ngens) { # pop size and gen time info
   R_size <- NULL # vector of R individuals
   K_size <- NULL # vector of K, to compare if K has been reached
   r_allele <- NULL # vector of R allele freq through time
-  
-  extinct_dummy <- FALSE
   
   # make allele pool for genotypes
   init_allele <- sample(c("W", "R"), size = 2*N, prob = c(1-r_0, r_0), replace = T)
@@ -74,7 +84,6 @@ ts_data <- function(parm_vect, ngens) { # pop size and gen time info
       inds[row_num,col_num] <- 0
     }
   }    
-  
   # note mI_pheno is additional to mS_pheno --> address here
   inds$mI_pheno = inds$mS_pheno+inds$mI_pheno # m_I is a bonus mortality, should only increase mortality
   
@@ -82,19 +91,15 @@ ts_data <- function(parm_vect, ngens) { # pop size and gen time info
   
   # pre-disease intro
   for (p in 1:d_0) {
-    
     # draw K first
     K_stoch = floor(rnorm(1, mean=K, sd=K_sd))
-
     r_freq <- (2*length(which(inds$ind_geno == "RR"))+length(which(inds$ind_geno == "WR")))/(2*length(inds$ind_geno == "WW"))
-    
-    # save things after each disease cycle -- note this is censusing BEFORE reproduction!
-    S_size <- c(S_size, dim(inds%>%filter(inf_stat=="S"))[1]) # some Ss
-    I_size <- c(I_size, dim(inds%>%filter(inf_stat=="I"))[1]) # some Is
-    R_size <- c(R_size, dim(inds%>%filter(inf_stat=="R"))[1]) # some Rs
+    # save things -- pre reproduction
+    S_size <- c(S_size, dim(inds)[1]) # only Ss
+    I_size <- c(I_size, 0) # no Is
+    R_size <- c(R_size, 0) # no Rs
     K_size <- c(K_size, K_stoch) # carrying capacity
-    r_allele <- c(r_allele, r_freq) # r allele
-    
+    r_allele <- c(r_allele, r_freq) # no r allele -- calc R allele
     
     # no disease
     # so just mortality
@@ -241,7 +246,9 @@ ts_data <- function(parm_vect, ngens) { # pop size and gen time info
   inf_inds <- max(1, floor(0.1*dim(inds)[1])) # at least 1 individual, or ~10% of individuals
   inds$inf_stat[sample(1:length(inds$ind_num), inf_inds, replace = F)] <- "I"
   
+  
   for (i in 1:ngens) {
+    
     # draw probabilities for all process each year --> need to truncate at 0?
     # phenotypes stay the same
     
@@ -263,13 +270,13 @@ ts_data <- function(parm_vect, ngens) { # pop size and gen time info
     for (disease_cycle in 1:disease_cycles){
       
       r_freq <- (2*length(which(inds$ind_geno == "RR"))+length(which(inds$ind_geno == "WR")))/(2*length(inds$ind_geno == "WW"))
-      
       # save things after each disease cycle -- note this is censusing BEFORE reproduction!
       S_size <- c(S_size, dim(inds%>%filter(inf_stat=="S"))[1]) # some Ss
       I_size <- c(I_size, dim(inds%>%filter(inf_stat=="I"))[1]) # some Is
       R_size <- c(R_size, dim(inds%>%filter(inf_stat=="R"))[1]) # some Rs
       K_size <- c(K_size, K_stoch) # carrying capacity
       r_allele <- c(r_allele, r_freq) # r allele
+      
       
       for (j in 1:length(events)) {
         
@@ -337,9 +344,11 @@ ts_data <- function(parm_vect, ngens) { # pop size and gen time info
         }
       }
       
+      
     }
     
     if (dim(inds)[1] == 0) {
+      # print(c(i, "everyone dead after disease dynamics"))
       extinct_dummy <- TRUE # pop is extinct
       S_size <- c(S_size, 0) # no Ss
       I_size <- c(I_size, 0) # no Is
@@ -435,8 +444,8 @@ ts_data <- function(parm_vect, ngens) { # pop size and gen time info
       if (is.null(dim(off_dat))) off_dat <- NULL
     }
     
-    dim(inds)
-    dim(off_dat)
+    # dim(inds)
+    # dim(off_dat)
     
     # combine parents and offspring
     inds <- rbind(inds[,1:7], off_dat)
@@ -455,18 +464,37 @@ ts_data <- function(parm_vect, ngens) { # pop size and gen time info
     }
     
   }
+    
+  output_dat <- c(# things to decide if ER occured
+    extinct <- extinct_dummy, # did the population go extinct? T/F
+    pop_drop20 <- any(S_size[(d_0):length(S_size)]+I_size[(d_0):length(I_size)]+R_size[(d_0):length(I_size)] < K_size[(d_0):length(I_size)]*0.20), # did the population drop? T/F
+    pop_drop50 <- any(S_size[(d_0):length(S_size)]+I_size[(d_0):length(I_size)]+R_size[(d_0):length(I_size)] < K_size[(d_0):length(I_size)]*0.50), # did the population drop? T/F
+    pop_drop80 <- any(S_size[(d_0):length(S_size)]+I_size[(d_0):length(I_size)]+R_size[(d_0):length(I_size)] < K_size[(d_0):length(I_size)]*0.80), # did the population drop? T/F
+    r_allele_peak15 <- any(r_allele[(d_0):length(S_size)] > 0.15), # did the allele spread at any point?
+    r_allele_peak45 <- any(r_allele[(d_0):length(S_size)] > 0.45), # did the allele spread at any point?
+    r_allele_peak75 <- any(r_allele[(d_0):length(S_size)] > 0.75), # did the allele spread at any point?
+    # pop gen outcomes
+    final_r_allele <- mean(tail(r_allele, 15), na.rm = TRUE), # average r allele frequency by end of simulation
+    final_pop_size <- mean(tail(S_size+I_size+R_size, 15), na.rm = TRUE),
+    # disease outcomes
+    final_inf_prev <- mean(tail(I_size/(S_size+I_size+R_size), 15), na.rm = TRUE), # helps determine if I was lost
+    # get the extremes
+    max_r_allele <- max(r_allele[d_0:length(r_allele)], na.rm = TRUE), # only consider post-disease hits
+    time_max_r_allele <- which(r_allele==max(r_allele))[1],
+    max_inf_prev <- max(I_size/(S_size+I_size+R_size), na.rm = TRUE),
+    time_last_zero_inf <- sum(c(d_0,  which(I_size[d_0+1:length(I_size)]/(S_size[d_0+1:length(S_size)]+I_size[d_0+1:length(I_size)]+R_size[d_0+1:length(I_size)])==0)[1]), na.rm = T), # only care about post-disease
+    min_pop <- min(S_size[(d_0):length(S_size)]+I_size[(d_0):length(I_size)]+R_size[(d_0):length(I_size)], na.rm = TRUE), # only care about post-disease min size
+    time_min_pop <- which(S_size+I_size+R_size == min_pop)[1], # time that min pop was hit
+    # did recvoery happen AFTER min_pop?
+    at_K95 <- ifelse(extinct_dummy, FALSE, any(0.95*K_size[time_min_pop:length(K_size)]<=S_size[time_min_pop:length(S_size)]+I_size[time_min_pop:length(I_size)]+R_size[time_min_pop:length(R_size)])),  # did we get back up? note that if extinct, will use start of time series (not good!)
+    first_K95 <- time_min_pop + which(S_size[time_min_pop:length(S_size)]+I_size[time_min_pop:length(I_size)]+R_size[time_min_pop:length(R_size)]>=0.95*K_size[time_min_pop:length(K_size)])[1], 
+    # some initial metrics re: mutation-selection
+    r_ts_d0 <- r_allele[d_0],
+    parm_number <- parm_num
+  )
   
-    # output here is the list of sizes
-    output_dat <- data.frame(
-      ts = 1:length(S_size),
-      S_pop = S_size,
-      I_pop = I_size,
-      R_pop = R_size,
-      tot_pop = S_size + I_size + R_size,
-      K_val = K_size,
-      r_freq = r_allele
-    )
   
+  # for the early tests, want to know the summary from each simulation
   return(output_dat) 
   
-  }
+}
