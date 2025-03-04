@@ -1,0 +1,26 @@
+{
+    "id": "D83C4CEF",
+    "path": "~/GitHub/evorescue_hostpath_str/figs/figure_plot/02_plt_RF.R",
+    "project_path": "figs/figure_plot/02_plt_RF.R",
+    "type": "r_source",
+    "hash": "0",
+    "contents": "",
+    "dirty": false,
+    "created": 1737501427216.0,
+    "source_on_save": false,
+    "relative_order": 10,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "37,43",
+        "scrollLine": "32"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1741130854,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1741130854305,
+    "read_only": false,
+    "read_only_alternatives": []
+}

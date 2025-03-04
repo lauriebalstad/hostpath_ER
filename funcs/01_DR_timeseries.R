@@ -1,0 +1,320 @@
+library(dplyr)
+library(parallel)
+library(foreach)
+library(doParallel)
+
+dr_data <- function(parm_vect, init_dat, tot_ri, num_ri) { # pop size and gen time info
+  
+  # note this takes in a compartment structure SIS, SIX, SIR 
+  # second takes in an order: events order (e1, e2, e3) (B,M,R)
+  # and then all the parameters
+  comp_str <- parm_vect[1]; event_order <- parm_vect[2]; freq_rate <- parm_vect[3] # structural
+  d_0 <- floor(parm_vect[4]/parm_vect[29]); ngens <- floor(parm_vect[5]/parm_vect[29]) # note ngens now parameter 5!!!
+  b_RR <- parm_vect[6]; b_WR <- parm_vect[7]; b_WW <- parm_vect[8]; b_sd <- parm_vect[9] # transmission
+  m_SRR <- parm_vect[10]; m_SWR <- parm_vect[11]; m_SWW <- parm_vect[12]; m_IRR <- parm_vect[13]; m_IWR <- parm_vect[14]; m_IWW <- parm_vect[15]; m_Ssd <- parm_vect[16]; m_Isd <- parm_vect[17] # mortality
+  r_RR <- parm_vect[18]; r_WR <- parm_vect[19]; r_WW <- parm_vect[20]; r_sd <- parm_vect[21] # recovery
+  l_RR <- parm_vect[22]; l_WR <- parm_vect[23]; l_WW  <- parm_vect[24]; l_sd <- parm_vect[25]; mut_rate <- parm_vect[26] # reproduction
+  K <- parm_vect[27]; K_sd <- parm_vect[28] # carrying capacity
+  disease_cycles <- parm_vect[29] # number of times to go through disease between reproduction cycles
+
+  # get compartmetns
+  if(comp_str == 1) compartments <- c("SIX")
+  if(comp_str == 2) compartments <- c("SIS")
+  if(comp_str == 3) compartments <- c("SIR")
+  
+  # get event order list
+  if(event_order == 1) events <- c("B","M","G")
+  if(event_order == 2) events <- c("B","G","M")
+  if(event_order == 3) events <- c("M","G","B")
+  if(event_order == 4) events <- c("M","B","G")
+  if(event_order == 5) events <- c("G","B","M")
+  if(event_order == 6) events <- c("G","M","B")
+  
+  # get transmission type 
+  # if(trans_type == 1) trans_form <- c("density")
+  # if(trans_type == 2) trans_form <- c("freq")
+  
+  # storage vectors for across simulations: will turn into a list and then rbind lists together
+  extinct <- NULL # did the population go extinct? T/F
+  S_size <- NULL # vector of S individuals
+  I_size <- NULL # vector of I individuals
+  R_size <- NULL # vector of R individuals
+  K_size <- NULL # vector of K, to compare if K has been reached
+  r_allele <- NULL # vector of R allele freq through time
+  
+  
+  
+  # construct initial inds: all clean
+  inds <- init_dat # from input
+  
+  # check that northing is negative --> change to zero
+  if (any(inds<0)) {
+    index_neg <- which(inds<0)
+    for (i in 1:length(index_neg)) {
+      col_num <- ceiling(index_neg[i]/dim(inds)[1])
+      row_num <- index_neg[i]%%dim(inds)[1]
+      if (row_num == 0) {row_num <- dim(inds)[1]}
+      inds[row_num,col_num] <- 0
+    }
+  }    
+  # note mI_pheno is additional to mS_pheno --> is already addressed from starting point
+  # inds$mI_pheno = inds$mS_pheno+inds$mI_pheno # m_I is a bonus mortality, should only increase mortality
+  
+  extinct_dummy <- FALSE
+  
+  # count number of reintros
+  c_ri <- 0
+  
+  for (i in 1:ngens) {
+    
+    if (c_ri < num_ri) {
+      
+      M <- floor(tot_ri/num_ri)
+      
+      # construct initial inds: all clean
+      ri_inds <- data.frame(ind_num = 1:M,
+                         inf_stat = rep("S", M), # all healthy
+                         ind_geno = rep("WW", M), # use init genos
+                         b_pheno = c(rnorm(M, mean=b_WW, sd=b_sd)), # transmission placeholder
+                         mS_pheno = c(rnorm(M, mean=m_SWW, sd=m_Ssd)), # S_WW type mortality
+                         mI_pheno = c(rnorm(M, mean=m_IWW, sd=m_Isd)), # mortality placeholder
+                         r_pheno = c(rnorm(M, mean=r_WW, sd=r_sd)) # revovery placeholder 
+      ) # phenos still in rates
+      
+      inds <- rbind(inds, ri_inds)
+      
+      c_ri <- c_ri + 1
+      
+    }
+    
+    # draw probabilities for all process each year --> need to truncate at 0?
+    # phenotypes stay the same
+    
+    K_stoch = floor(rnorm(1, mean=K, sd=K_sd))
+    
+    # is everyone dead??
+    if (dim(inds)[1] == 0) {
+      # print(c(i, "all dead should break"))
+      extinct_dummy <- TRUE # pop is extinct
+      S_size <- c(S_size, 0) # no Ss
+      I_size <- c(I_size, 0) # no Is
+      R_size <- c(R_size, 0) # no Rs
+      K_size <- c(K_size, K_stoch) # carrying capacity
+      r_allele <- c(r_allele, 0) # no R allele currently
+      break # stop generation loop
+    }
+    
+    # do the three events per generation
+    for (disease_cycle in 1:disease_cycles){
+      
+      r_freq <- (2*length(which(inds$ind_geno == "RR"))+length(which(inds$ind_geno == "WR")))/(2*length(inds$ind_geno == "WW"))
+      # save things after each disease cycle -- note this is censusing BEFORE reproduction!
+      S_size <- c(S_size, dim(inds%>%filter(inf_stat=="S"))[1]) # some Ss
+      I_size <- c(I_size, dim(inds%>%filter(inf_stat=="I"))[1]) # some Is
+      R_size <- c(R_size, dim(inds%>%filter(inf_stat=="R"))[1]) # some Rs
+      K_size <- c(K_size, K_stoch) # carrying capacity
+      r_allele <- c(r_allele, r_freq) # r allele
+      
+      
+      for (j in 1:length(events)) {
+        
+        # make sure someone's alive!
+        if (dim(inds)[1] == 0) {
+          extinct_dummy <- TRUE # pop is extinct
+          S_size <- c(S_size, 0) # no Ss
+          I_size <- c(I_size, 0) # no Is
+          R_size <- c(R_size, 0) # no Rs
+          K_size <- c(K_size, K_stoch) # carrying capacity
+          r_allele <- c(r_allele, 0) # no R allele currently
+          break # stop generation loop
+        }
+        
+        # place holders
+        inds$p_transmit <- rep(NA)
+        inds$p_survS <- rep(NA)
+        inds$p_survI <- rep(NA)
+        inds$p_recovery <- rep(NA)
+        inds$mortalityS <- rep(NA)
+        inds$mortalityI <- rep(NA)
+        inds$change_stat <- rep(NA)
+        
+        if (events[j]=="B") {
+          # get transmission phenotype
+          # if(trans_form == "density") 
+          {inds$p_transmit <- 1-exp(-freq_rate-inds$b_pheno*length(which(inds$inf_stat=="I")))}
+          # if(trans_form == "freq") {inds$p_transmit <- 1-exp(-inds$b_pheno)}
+          # coin flips
+          inds$change_stat <- vapply(inds$p_transmit, function(x) rbinom(1, 1, x), as.integer(1L))
+          # note density dependence: length(which(inds$inf_stat=="I"))
+          tmpS <- inds %>% filter(inf_stat=="S" & change_stat==1)
+          if (dim(tmpS)[1] > 0) tmpS$inf_stat <- "I" # goes to being an I
+          # everyone else
+          tmpI <- inds %>% filter(inf_stat!="S" | (inf_stat=="S" & change_stat==0))
+          # recombine
+          inds <- rbind(tmpS, tmpI)
+          inds <- inds[, 1:7]
+        }
+        if (events[j]=="M") {
+          # probability of survival
+          inds$p_survS <- exp(-inds$mS_pheno)
+          inds$p_survI <- exp(-inds$mI_pheno)
+          # coin flips
+          inds$mortalityS <- vapply(inds$p_survS, function(x) rbinom(1, 1, x), as.integer(1L))
+          inds$mortalityI <- vapply(inds$p_survI, function(x) rbinom(1, 1, x), as.integer(1L))
+          # get mortality phenotype: infects
+          tmpI <- inds %>% filter(inf_stat == "I") %>% filter(mortalityI==1)
+          tmpS <- inds %>% filter(inf_stat == "S" | inf_stat == "R") %>% filter(mortalityS==1)
+          inds <- rbind(tmpI, tmpS)
+          inds <- inds[, 1:7]
+        }
+        if (events[j]=="G" & compartments !="SIX") {
+          # get recovery phenotype
+          inds$p_recovery <- (1-exp(-inds$r_pheno))
+          # coin flip
+          inds$change_stat <- vapply(inds$p_recovery, function(x) rbinom(1, 1, x), as.integer(1L))
+          # get I --> not I list
+          tmpI <- inds %>% filter(inf_stat=="I" & change_stat==1)
+          if (dim(tmpI)[1] > 0) tmpI$inf_stat <- ifelse(compartments=="SIR", "R", "S") # if it's not SIR, it's SIS
+          # everyone else
+          tmpS <- inds %>% filter(inf_stat!="I" | (inf_stat=="I" & change_stat==0))
+          # recombine
+          inds <- rbind(tmpS, tmpI)
+          inds <- inds[, 1:7]
+        }
+      }
+      
+      
+    }
+    
+    if (dim(inds)[1] == 0) {
+      # print(c(i, "everyone dead after disease dynamics"))
+      extinct_dummy <- TRUE # pop is extinct
+      S_size <- c(S_size, 0) # no Ss
+      I_size <- c(I_size, 0) # no Is
+      R_size <- c(R_size, 0) # no Rs
+      K_size <- c(K_size, K_stoch) # carrying capacity
+      r_allele <- c(r_allele, 0) # no R allele currently
+      break # stop generation loop
+    }
+    
+    # survivors reproduce if there is someone around
+    if (dim(inds)[1] > 0) {
+      # print(c(i, "dim(inds) > 0"))
+      parent_lams <- paste0("l_",inds$ind_geno,sep="")
+      rep_rate <- NULL
+      for (P in 1:length(parent_lams)) {
+        lam_val=ifelse(parent_lams[P]=="l_RR", l_RR, ifelse(parent_lams[P]=="l_WR", l_WR, l_WW))
+        rep_rate <- c(rep_rate, floor(rnorm(1, lam_val, l_sd)))
+      }
+      rep_rate[which(rep_rate < 0)] = 0
+      gamts <- NULL
+      for (m in 1:length(parent_lams)) {
+        # get gametes from parent
+        gamts_temp1 <- if (inds$ind_geno[m]=="RR") {rep("R", 2*rep_rate[m])}
+        gamts_temp2 <- if (inds$ind_geno[m]=="WW") {rep("W", 2*rep_rate[m])}
+        # WRs will need to have coin flip if odd rep_rate
+        gamts_temp3 <- if (inds$ind_geno[m]=="WR" & rep_rate[m]%%2==0) {c(rep("W", rep_rate[m]/2), rep("R", rep_rate[m]/2))}
+        gamts_temp4 <- if (inds$ind_geno[m]=="WR" & rep_rate[m]%%2==1) {c(rep("W", (rep_rate[m]-1)/2), rep("R", (rep_rate[m]-1)/2), sample(c("W","R"), 1))}
+        gamts <- c(gamts, gamts_temp1, gamts_temp2, gamts_temp3, gamts_temp4)
+      }
+      off_dat <- NULL
+      
+      # if there are 2+ gametes, create offspring
+      # add some mutation
+      if (length(gamts) > 1 & K_stoch-length(inds$ind_num) > 0) {
+        # draw them, limiting by stochastic K
+        off_gamts <- sample(gamts, 
+                            min(length(gamts), (K_stoch-length(inds$ind_num))*2), 
+                            replace=FALSE)
+        # only take even number: if odd length, drop the last one
+        if (length(off_gamts)%%2==1) off_gamts <- off_gamts[1:length(off_gamts)-1]
+        # mutate some
+        muts <- rbinom(length(off_gamts), 1, mut_rate) # 1 = does mutate
+        off_gamts[which(muts==1)] <- ifelse(off_gamts[which(muts==1)] == "W", "R", "W")
+        # grab pairs
+        off_genos <- NULL
+        for (n in 1:(length(off_gamts)/2)) {
+          geno_temp1 <- if (off_gamts[2*n] == "W" & off_gamts[2*n-1] == "W") "WW"
+          geno_temp2 <- if (off_gamts[2*n] == "R" & off_gamts[2*n-1] == "R") "RR"
+          # heterozygous case
+          geno_temp3 <- if (off_gamts[2*n] == "R" & off_gamts[2*n-1] == "W") "WR"
+          geno_temp4 <- if (off_gamts[2*n] == "W" & off_gamts[2*n-1] == "R") "WR"
+          off_genos <- c(off_genos, geno_temp1, geno_temp2, geno_temp3, geno_temp4)
+        }
+        
+        off_dat <- data.frame(ind_num = 1:length(off_genos),
+                              inf_stat = rep("S"),
+                              ind_geno = off_genos, 
+                              b_pheno = NA,
+                              mS_pheno = NA,
+                              mI_pheno=NA,
+                              r_pheno=NA)
+        
+        for (p in 1:dim(off_dat)[1]) {
+          off_dat$b_pheno[p] <- ifelse(off_dat$ind_geno[p] == "WW", rnorm(1, mean=b_WW, sd=b_sd),
+                                       ifelse(off_dat$ind_geno[p] == "RR", rnorm(1, mean=b_RR, sd=b_sd),
+                                              rnorm(1, mean=b_WR, sd=b_sd)))
+          off_dat$mS_pheno[p] <- ifelse(off_dat$ind_geno[p] == "WW", rnorm(1, mean=m_SWW, sd=m_Ssd),
+                                        ifelse(off_dat$ind_geno[p] == "RR", rnorm(1, mean=m_SRR, sd=m_Ssd),
+                                               rnorm(1, mean=m_SWR, sd=m_Ssd)))
+          off_dat$mI_pheno[p] <- ifelse(off_dat$ind_geno[p] == "WW", rnorm(1, mean=m_IWW, sd=m_Isd),
+                                        ifelse(off_dat$ind_geno[p] == "RR", rnorm(1, mean=m_IRR, sd=m_Isd),
+                                               rnorm(1, mean=m_IWR, sd=m_Isd)))
+          off_dat$r_pheno[p] <- ifelse(off_dat$ind_geno[p] == "WW", rnorm(1, mean=r_WW, sd=r_sd),
+                                       ifelse(off_dat$ind_geno[p] == "RR", rnorm(1, mean=r_RR, sd=r_sd),
+                                              rnorm(1, mean=r_WR, sd=r_sd)))
+        }
+        
+        # check for any below 0, change to positive
+        if (any(off_dat<0)) {
+          index_neg <- which(off_dat<0)
+          for (i in 1:length(index_neg)) {
+            col_num <- ceiling(index_neg[i]/dim(off_dat)[1])
+            row_num <- index_neg[i]%%dim(off_dat)[1]
+            if (row_num == 0) {row_num <- dim(off_dat)[1]}
+            off_dat[row_num,col_num] <- 0
+          }
+        }
+        
+        off_dat$mI_pheno = ifelse(off_dat$mI_pheno<0, off_dat$mS_pheno, off_dat$mS_pheno+off_dat$mI_pheno)
+        
+      }
+      
+      if (is.null(dim(off_dat))) off_dat <- NULL
+    }
+    
+    # dim(inds)
+    # dim(off_dat)
+    
+    # combine parents and offspring
+    inds <- rbind(inds[,1:7], off_dat)
+    # reindex 
+    inds$ind_num <- 1:dim(inds)[1]
+    
+    if (dim(inds)[1] == 0) {
+      # print(c(i, "all dead should break"))
+      extinct_dummy <- TRUE # pop is extinct
+      S_size <- c(S_size, 0) # no Ss
+      I_size <- c(I_size, 0) # no Is
+      R_size <- c(R_size, 0) # no Rs
+      K_size <- c(K_size, K_stoch) # carrying capacity
+      r_allele <- c(r_allele, 0) # no R allele currently
+      break # stop generation loop
+    }
+    
+  }
+  
+  # output here is the list of sizes
+  output_dat <- data.frame(
+    ts = 1:length(S_size),
+    S_pop = S_size,
+    I_pop = I_size,
+    R_pop = R_size,
+    tot_pop = S_size + I_size + R_size,
+    K_val = K_size,
+    r_freq = r_allele
+  )
+  
+  return(output_dat) 
+  
+}
