@@ -2,8 +2,8 @@
     "sortOrder": [
         {
             "columnIndex": 2,
-            "ascending": true
+            "ascending": false
         }
     ],
-    "path": "~/GitHub/evorescue_hostpath_str/dat"
+    "path": "~/GitHub/evorescue_hostpath_str/figs/sim_fig_dat"
 }
