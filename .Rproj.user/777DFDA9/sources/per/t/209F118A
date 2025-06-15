@@ -1,0 +1,26 @@
+{
+    "id": "209F118A",
+    "path": "~/GitHub/hostpath_ER/figs/sim_fig_dat/01_sim_tsdat.R",
+    "project_path": "figs/sim_fig_dat/01_sim_tsdat.R",
+    "type": "r_source",
+    "hash": "2425902129",
+    "contents": "",
+    "dirty": false,
+    "created": 1748041853076.0,
+    "source_on_save": false,
+    "relative_order": 2,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "88,29",
+        "scrollLine": "65"
+    },
+    "folds": "69|30|86|0|\n",
+    "lastKnownWriteTime": 1748559247,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1748559247653,
+    "read_only": false,
+    "read_only_alternatives": []
+}

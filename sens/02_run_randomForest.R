@@ -3,8 +3,8 @@ library(randomForest)
 library(ggplot2)
 
 # loading the data -- note weird directory because of HPC use
-sum_0302a <- readRDS("C:/Users/lauri/AppData/Roaming/MobaXterm/home/evorescue_hostpath_str/dat/sim_dat_0302.Rdata")
-sum_0302b <- readRDS("C:/Users/lauri/AppData/Roaming/MobaXterm/home/evorescue_hostpath_str/dat/sim_dat_2_0302.Rdata")
+sum_0302a <- readRDS("dat/sim_dat_0302.Rdata")
+sum_0302b <- readRDS("dat/sim_dat_2_0302.Rdata")
 random_parms <- readRDS("dat/mat_var_0211.Rdata") # figure out what these values were converging around....? new values have super little er
 # ^ read correct matrix!
 
@@ -99,72 +99,64 @@ RF_dat$"compartments" <- as.factor(RF_dat$"compartments"); RF_dat$"event order" 
 
 # trying with ratios instead of raw values, e.g., ratio of RR:WW
 RF_ratio <- data.frame(compartments = RF_dat$"compartments", 
-                       `event_order` = RF_dat$"event order", 
-                       "\u03B2_F_ratio" = RF_dat$"\u03B2_F,RR"/RF_dat$"\u03B2_F,WW", 
-                       # "\u03B2_F,WW" = RF_dat$"\u03B2_F,WW", 
-                       "\u03C3_\u03B2,F" = RF_dat$"\u03C3_\u03B2,F",
-                       `transmiss_type` = RF_dat$`transmission case`, # want to be able to seperate cases with and without enviro
-                       "\u03B2_D_ratio" = RF_dat$"\u03B2_D,RR"/RF_dat$"\u03B2_D,WW",
-                       # "\u03B2_D,WW" = RF_dat$"\u03B2_D,WW",
-                       "\u03C3_\u03B2,D" = RF_dat$"\u03C3_\u03B2,D",
-                       "\u03BC_S_ratio" = RF_dat$"\u03BC_S,RR"/RF_dat$"\u03BC_S,WW",
-                       # "\u03BC_S,WW" = RF_dat$"\u03BC_S,WW",
-                       "\u03BC_I_ratio" = RF_dat$"\u03BC_I,RR"/RF_dat$"\u03BC_I,WW",
-                       # "\u03BC_I,WW" = RF_dat$"\u03BC_I,WW",
-                       "\u03C3_\u03BC,S" = RF_dat$"\u03C3_\u03BC,S", 
-                       "\u03C3_\u03BC,I" = RF_dat$"\u03C3_\u03BC,I", 
-                       "\u03B3_ratio" = RF_dat$"\u03B3_RR"/RF_dat$"\u03B3_WW", 
-                       # "\u03B3_WW" = RF_dat$"\u03B3_WW", 
-                       "\u03C3_\u03B3" = RF_dat$"\u03C3_\u03B3", 
-                       "\u03BB_ratio" = RF_dat$"\u03BB_RR"/RF_dat$"\u03BB_WW"
-                       # "\u03BB_WW" = RF_dat$"\u03BB_WW"
+                       "event order" = RF_dat$"event order", 
+                       "allele benefit, enviro. trans. blocking" = RF_dat$"\u03B2_F,RR"/RF_dat$"\u03B2_F,WW", 
+                       "wild-type enviro. tranmission" = RF_dat$"\u03B2_F,WW", 
+                       "enviro. tranmission variation" = RF_dat$"\u03C3_\u03B2,F",
+                       "transmission type" = RF_dat$"transmission case", # want to be able to seperate cases with and without enviro
+                       "allele benefit, dens. trans. blocking" = RF_dat$"\u03B2_D,RR"/RF_dat$"\u03B2_D,WW",
+                       "wild-type dens. tranmission" = RF_dat$"\u03B2_D,WW",
+                       "dens tranmission variation" = RF_dat$"\u03C3_\u03B2,D",
+                       "wild-type natural mortality" = RF_dat$"\u03BC_S,WW",
+                       "allele benefit, mortality-blocking" = RF_dat$"\u03BC_I,RR"/RF_dat$"\u03BC_I,WW",
+                       "wild-type disease mortality" = RF_dat$"\u03BC_I,WW",
+                       "natural mortality variation" = RF_dat$"\u03C3_\u03BC,S", 
+                       "disease mortality variation" = RF_dat$"\u03C3_\u03BC,I", 
+                       "allele benefit, clearance aug." = RF_dat$"\u03B3_RR"/RF_dat$"\u03B3_WW", 
+                       "wild-type recovery" = RF_dat$"\u03B3_WW", 
+                       "recovery variation" = RF_dat$"\u03C3_\u03B3", 
+                       "allele cost, fecundity" = RF_dat$"\u03BB_RR"/RF_dat$"\u03BB_WW",
+                       "wild-type fecundity" = RF_dat$"\u03BB_WW"
 ) # then everything after is the same
 RF_ratio <- cbind(RF_ratio, RF_dat[, 27:35]) # , RF_dat[,c(43:44)]) # RF_dat add is for and r/inf info
-
-# x variables will be compartments-ngens; y variable will be P(extinct) or P(ER), maybe a few others? avg_final_r, avg_final_inf
-# extinct
-forest_extinct <- randomForest(x=RF_dat[2:35], y=RF_dat$`P(extinct)`, data=RF_dat, ntree=1000, importance = T, localImp = T)
-plot(forest_extinct) # this is checking the convergence?
-varImpPlot(forest_extinct)
-forest_extinct # checing var explained etc
-save(forest_extinct, file = "figs/sim_fig_dat/forest_extinct")
-# ER
-forest_ER <- randomForest(x=RF_dat[2:35], y=RF_dat$`P(ER_50_45)`, data=RF_dat, ntree=1000, importance = T, localImp = T)
-plot(forest_ER) # this is checking the convergence?
-varImpPlot(forest_ER)
-forest_ER # checking var explained etc
-save(forest_ER, file = "figs/sim_fig_dat/forest_ER")
-# DR
-forest_DR <- randomForest(x=RF_dat[2:35], y=RF_dat$`P(DR_50_45)`, data=RF_dat, ntree=1000, importance = T, localImp = T)
-plot(forest_DR) # this is checking the convergence?
-varImpPlot(forest_DR)
-forest_DR # checking var explained etc
-save(forest_DR, file = "figs/sim_fig_dat/forest_DR")
+colnames(RF_ratio) <- c("compartments", "event order",
+                        "allele benefit:\nenv. trans. block.", "wild type env. tranmission", "env. tranmission variation", 
+                        "transmission type", 
+                        "allele benefit:\ndens. trans. block.", "wild type dens. tranmission", "dens. tranmission variation",
+                        "wild type natural mortality", "allele benefit:\nmortality block.", "wild type disease mortality", "natural mortality variation", "disease mortality variation",
+                        "allele benefit:\nclearance aug.", "wild type recovery", "recovery variation",
+                        "allele cost: fecundity", "wild type fecundity", "fecundity variation", 
+                        "mutation rate", 
+                        "carrying capacity", "carrying capactity variation",
+                        "initalization length",
+                        "disease gens.\nper host gen.", 
+                        "allele frequency after initalization", "initial disease prevelence", "total simulation time")
+saveRDS(colnames(RF_ratio), file = "dat/RF_names.Rdata")
 
 # with ratios
 forest_extinct_ratio <- randomForest(x=RF_ratio, y=RF_dat$`P(extinct)`, ntree=1000, importance = T, localImp = T)
 plot(forest_extinct_ratio) # this is checking the convergence?
 varImpPlot(forest_extinct_ratio)
 forest_extinct_ratio # checing var explained etc
-save(forest_extinct_ratio, file = "figs/sim_fig_dat/forest_extinct_ratio")
+saveRDS(forest_extinct_ratio, file = "dat/RF_ext_ratio.Rdata")
 # ER
 forest_ER_ratio <- randomForest(x=RF_ratio, y=RF_dat$`P(ER_50_45)`, ntree=1000, importance = T, localImp = T)
 plot(forest_ER_ratio) # this is checking the convergence?
 varImpPlot(forest_ER_ratio)
 forest_ER_ratio # checking var explained etc
-save(forest_ER_ratio, file = "figs/sim_fig_dat/forest_ER_ratio")
+saveRDS(forest_ER_ratio, file = "dat/RF_ER_ratio.Rdata")
 # DR -- skip in final fig
-# forest_DR_ratio <- randomForest(x=RF_ratio, y=RF_dat$`P(DR_50_45)`, ntree=1000, importance = T, localImp = T)
-# plot(forest_DR_ratio) # this is checking the convergence?
-# varImpPlot(forest_DR_ratio)
-# forest_DR_ratio # checking var explained etc
-# save(forest_DR_ratio, file = "figs/sim_fig_dat/forest_DR_ratio")
+forest_DR_ratio <- randomForest(x=RF_ratio, y=RF_dat$`P(DR_50_45)`, ntree=1000, importance = T, localImp = T)
+plot(forest_DR_ratio) # this is checking the convergence?
+varImpPlot(forest_DR_ratio)
+forest_DR_ratio # checking var explained etc
+saveRDS(forest_DR_ratio, file = "dat/RF_IL_ratio.Rdata")
 # first time to K for ER+
 forest_K95_ratio <- randomForest(x=RF_ratio, y=RF_dat$`ER_K95`, ntree=1000, importance = T, localImp = T)
 plot(forest_K95_ratio) # this is checking the convergence?
 varImpPlot(forest_K95_ratio)
 forest_K95_ratio # checking var explained etc -- not super explainatory or surprising....?
-save(forest_K95_ratio, file = "figs/sim_fig_dat/forest_K95_ratio")
+saveRDS(forest_K95_ratio, file = "dat/RF_K95_ratio.Rdata")
 
 # plotting non-interacting effect:
 partialPlot(forest_ER_ratio, RF_ratio, "event_order")

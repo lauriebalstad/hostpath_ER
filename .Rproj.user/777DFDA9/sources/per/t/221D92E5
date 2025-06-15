@@ -1,0 +1,26 @@
+{
+    "id": "221D92E5",
+    "path": "~/GitHub/hostpath_ER/figs/sim_fig_dat/01_sim_main.R",
+    "project_path": "figs/sim_fig_dat/01_sim_main.R",
+    "type": "r_source",
+    "hash": "2167660741",
+    "contents": "",
+    "dirty": false,
+    "created": 1748021491489.0,
+    "source_on_save": false,
+    "relative_order": 7,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "5,11",
+        "scrollLine": "0"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1748018864,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1748018864,
+    "read_only": false,
+    "read_only_alternatives": []
+}

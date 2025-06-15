@@ -5,7 +5,8 @@ library(viridis)
 library(ggh4x)
 
 #-----READ IN DATA-----
-str_dat <- readRDS("C:/Users/lauri/AppData/Roaming/MobaXterm/home/evorescue_hostpath_str/dat/str_fig_d2_0203.Rdata")
+# str_dat <- readRDS("C:/Users/lauri/AppData/Roaming/MobaXterm/home/evorescue_hostpath_str/dat/str_fig_d2_0203.Rdata")
+str_dat <- readRDS("dat/str_fig_d2_0203.Rdata")
 # convert to df
 str_dtf <- as.data.frame(matrix(unlist(str_dat), ncol = 20, byrow = T))
 colnames(str_dtf) <- c("extinct", 
@@ -18,7 +19,8 @@ colnames(str_dtf) <- c("extinct",
                        "at_K95", "firstK95",
                        "r_ts_d0", "parm_number")
 
-cb_dat <- readRDS("C:/Users/lauri/AppData/Roaming/MobaXterm/home/evorescue_hostpath_str/dat/cb_fig_d2_0203.Rdata")
+# cb_dat <- readRDS("C:/Users/lauri/AppData/Roaming/MobaXterm/home/evorescue_hostpath_str/dat/cb_fig_d2_0203.Rdata")
+cb_dat <- readRDS("dat/cb_fig_d2_0203.Rdata")
 cb_dtf <- as.data.frame(matrix(unlist(cb_dat), ncol = 20, byrow = T))
 colnames(cb_dtf) <- c("extinct", 
                        "pop_drop20", "pop_drop50", "pop_drop80",
@@ -30,7 +32,8 @@ colnames(cb_dtf) <- c("extinct",
                        "at_K95", "firstK95",
                        "r_ts_d0", "parm_number")
 
-dc_dat <- readRDS("C:/Users/lauri/AppData/Roaming/MobaXterm/home/evorescue_hostpath_str/dat/dc_fig_d2_0203.Rdata")
+# dc_dat <- readRDS("C:/Users/lauri/AppData/Roaming/MobaXterm/home/evorescue_hostpath_str/dat/dc_fig_d2_0203.Rdata")
+dc_dat <- readRDS("dat/dc_fig_d2_0203.Rdata")
 dc_dtf <- as.data.frame(matrix(unlist(dc_dat), ncol = 20, byrow = T))
 colnames(dc_dtf) <- c("extinct", 
                       "pop_drop20", "pop_drop50", "pop_drop80",
@@ -43,7 +46,8 @@ colnames(dc_dtf) <- c("extinct",
                       "r_ts_d0", "parm_number")
 
 # 0205 looks nice as well pm_fig_d2_0203
-pm_dat <- readRDS("C:/Users/lauri/AppData/Roaming/MobaXterm/home/evorescue_hostpath_str/dat/pm_fig_d2_0203.Rdata")
+# pm_dat <- readRDS("C:/Users/lauri/AppData/Roaming/MobaXterm/home/evorescue_hostpath_str/dat/pm_fig_d2_0203.Rdata")
+pm_dat <- readRDS("dat/pm_fig_d2_0203.Rdata")
 pm_dtf <- as.data.frame(matrix(unlist(pm_dat), ncol = 20, byrow = T))
 colnames(pm_dtf) <- c("extinct", 
                       "pop_drop20", "pop_drop50", "pop_drop80",
@@ -60,22 +64,22 @@ colnames(pm_dtf) <- c("extinct",
 str_dat <- readRDS("dat/all_ts_dat_0204.rds") # conintue to play w... there's a lot of cases w/o pop drop getting hit
 # rotate data
 # remove nans as 0s
-str_dat$`C - Infection\nprevelence` <- ifelse(is.nan(str_dat$`C - Infection\nprevelence`), 0, str_dat$`C - Infection\nprevelence`)
+str_dat$`Infection\nprevelence` <- ifelse(is.nan(str_dat$`Infection\nprevelence`), 0, str_dat$`Infection\nprevelence`)
 all_ts_long <- pivot_longer(str_dat %>% select(c(1, 7, 9, 11)), cols = c(3:5), names_to = "outcome", values_to = "value")
+all_ts_long$outcome_f <- factor(all_ts_long$outcome, levels = c("Scaled\npopulation size", "Adaptive allele\nfrequency", "Infection\nprevelence"))
 colors <- c("Extinction" = alpha("black", 0.8), "Persist. ER" = alpha("#ac1457",0.8),
             "Temp. ER" = "#f1c4a2", "Lose Inf." = alpha("#DB6341", 0.8))
 fig1A <- ggplot(all_ts_long, aes(ts, value)) + # 7, 8, 9, 10 gives exinction
   geom_line(aes(group = trial), col = alpha("black", 0.1), lwd = 0.75) +
-  geom_line(data = all_ts_long %>% filter(trial == 6), aes(color = "Extinction"), lwd = 0.85) + # extinction
-  geom_line(data = all_ts_long %>% filter(trial == 13), aes(color = "Persist. ER"), lwd = 0.85) + # ER
-  geom_line(data = all_ts_long %>% filter(trial == 5), aes(color = "Lose Inf."), lwd = 0.85) + # DR
-  geom_line(data = all_ts_long %>% filter(trial == 19), aes(color = "Temp. ER"), lwd = 0.85) + # back selection
-  facet_wrap(~outcome, scale = "free_y", ncol = 1) + theme_bw() + 
+  geom_line(data = all_ts_long %>% filter(trial == 2), aes(color = "Extinction"), lwd = 0.85) + # extinction
+  geom_line(data = all_ts_long %>% filter(trial == 8), aes(color = "Persist. ER"), lwd = 0.85) + # ER
+  geom_line(data = all_ts_long %>% filter(trial == 9), aes(color = "Lose Inf."), lwd = 0.85) + # DR
+  geom_line(data = all_ts_long %>% filter(trial == 10), aes(color = "Temp. ER"), lwd = 0.85) + # back selection
+  facet_wrap(~outcome_f, scale = "free_y", ncol = 1) + theme_bw() + 
   scale_color_manual(values = colors) + 
   theme(text = element_text(size = 12), legend.position = "bottom") + 
   guides(color = guide_legend(nrow = 2)) +
   labs(x = "Standardized generation", y = NULL, col = NULL)
-
 
 # merge data w/original cases
 cases <- expand.grid("transmission type" = 1:2, 
@@ -88,16 +92,16 @@ cases$number <- 1:N
 tmp <- merge(str_dtf, cases, by.x = "parm_number", by.y = "number", all = T)
 # get summaries to plot
 prob_dat <- tmp %>% group_by(parm_number) %>% 
-  summarize(`A - P(extinct)` = sum(extinct)/n()) 
+  summarize(`P(Ext)` = sum(extinct)/n()) 
 er_dat <- tmp %>% filter(extinct == 0 & pop_drop50 == 1 & at_K95 == 1 & r_allele_peak45 == 1) %>% 
   group_by(parm_number) %>% 
-  summarize(`B - P(rescue:\nevolutionary)` = n()/1000)
-dr_dat <- tmp %>% filter(extinct == 0 & pop_drop50 == 1 & at_K95 == 1 & r_allele_peak45 == 0) %>% 
+  summarize(`P(ER)` = n()/1000)
+il_dat <- tmp %>% filter(extinct == 0 & pop_drop50 == 1 & at_K95 == 1 & r_allele_peak45 == 0 & final_inf_prev < 0.25) %>% 
   group_by(parm_number) %>% 
-  summarize(`C - P(lose\ndisease)` = n()/1000)
+  summarize(`P(IL)` = n()/1000)
 # merge
 tmp <- merge(prob_dat, er_dat, by = c("parm_number"), all = T)
-tmp <- merge(tmp, dr_dat, by = c("parm_number"), all = T)
+tmp <- merge(tmp, il_dat, by = c("parm_number"), all = T)
 plot_dat <- merge(tmp, cases, by.x = c("parm_number"), by.y = "number")
 # rename
 plot_dat$compartments <- recode(plot_dat$compartments, "1" = "SIX", "2" = "SIS", "3" = "SIR")
@@ -112,12 +116,13 @@ for (i in 1: length(plot_long$value)) {
   if (plot_long$plus[i] > 1) plot_long$plus[i] <- 1
   if (plot_long$less[i] < 0) plot_long$less[i] <- 0
 }
+plot_long$outcome_f <- factor(plot_long$outcome, levels = c("P(Ext)", "P(ER)", "P(IL)"))
 # points plot
 fig1B <- ggplot(plot_long, aes(robustness, value, col = `transmission type`)) + 
   geom_linerange(aes(ymin = less, ymax = plus), lwd = 1) + 
   geom_hline(data = plot_long %>% filter(robustness == "N"), aes(yintercept = value), col = "gray70", lty = "dashed") + 
   geom_point(size = 2) + scale_color_manual(values = c("#ac1457", "#f1c4a2")) +
-  facet_grid(rows = vars(outcome), cols = vars(compartments)) + 
+  facet_grid(rows = vars(outcome_f), cols = vars(compartments)) + 
   labs(x = "Robustness type", y = "Probability", col = "Transmission type") + 
   theme_bw()  + 
   theme(text = element_text(size = 12), legend.position = "bottom") 

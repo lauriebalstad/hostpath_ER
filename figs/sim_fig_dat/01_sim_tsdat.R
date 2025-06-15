@@ -1,6 +1,7 @@
 library(tidyverse)
 library(ggplot2)
 library(viridis)
+source("funcs/00_model_timeseries.R")
 
 # so here really just want to iterate through a bunch of examples with different parameters
 # grab random 10 parameters, no repeating?
@@ -8,8 +9,8 @@ library(viridis)
 # plus one that has back selection... if possible
 
 # note some combinations never result in population decline
-parm_mat <- readRDS("dat/mat_var_0131.Rdata")
-grab_pars <- parm_mat[c(3:14, 323:326), c(1:34, 36)] # NOTE: from older version of mat_var.rds...
+parm_mat <- readRDS("dat/mat_var_0211.Rdata")
+grab_pars <- parm_mat[c(39:51, 1153:1159), c(1:34)] # NOTE: from older version of mat_var.rds...
 coexist_pars <- c(2, 2, # SIS, BGM, freq
                   0, 0, 0.7, 0.01, # 3-6 enviro dep transmission
                   0, 0, 3, 0.05, # 7-10 dens dep transmission
@@ -19,8 +20,7 @@ coexist_pars <- c(2, 2, # SIS, BGM, freq
                   0.5, 0.05, 0.05, 0.01, # 19-22 recovery, unused bc SIX (1)
                   2, 2, 2, 0.2, 0.01, # 23-27 reproduction & mutation
                   130, 4, # 28-29 carrying capacity things 
-                  100, 1, 0.01, 0.1, 100, # 30-32 timing things and inital R, ngens placeholders
-                  991)
+                  100, 1, 0.01, 0.1, 100) # 30-32 timing things and inital R, ngens placeholders
 back_pars <- c(1, 2, 
                -1, -1, -1, 0, 
                0, 0, 1.5, 0.05, 
@@ -30,8 +30,7 @@ back_pars <- c(1, 2,
                0.05, 0.05, 0.05, 0.01, 
                0.25, 1, 2, 0.2, 0.01, 
                130, 4, 
-               100, 1, 0.01, 0.1, 100,
-               992) 
+               100, 1, 0.01, 0.1, 100) 
 ext_pars <- c(1, 2, 
               3, 3, 3, 0.1, 
               0, 0, 1, 0.05, 
@@ -41,8 +40,7 @@ ext_pars <- c(1, 2,
               0.05, 0.05, 0.05, 0.01,
               0.5, 1.25, 2, 0.2, 0.01, 
               130, 4, 
-              100, 1, 0.01, 0.1, 100,
-              993) 
+              100, 1, 0.01, 0.1, 100) 
 demo_pars <- c(2, 2, 
               -1, -1, -1, 0, 
               0.7, 0.9, 0.9, 0.05, # end: 10
@@ -52,10 +50,9 @@ demo_pars <- c(2, 2,
               0.7, 0.05, 0.05, 0.01, # start 19
               0.2, 2, 2, 0.2, 0.01, 
               130, 4, 
-              100, 1, 0.01, 0.1, 100,
-              994) 
+              100, 1, 0.01, 0.1, 100) 
 # combine
-ts_pars <- rbind(grab_pars, coexist_pars, ext_pars, back_pars, demo_pars, demo_pars)
+ts_pars <- rbind(grab_pars, coexist_pars, coexist_pars, ext_pars, back_pars, demo_pars, demo_pars)
 # ts_pars[, 29] <- rep(1) # normalize disease cycles
 
 all_ts_dat <- data.frame(
@@ -101,7 +98,7 @@ all_ts_dat <- all_ts_dat %>% group_by(trial) %>% mutate(max_pop = (max(tot_pop))
 all_ts_dat$scaled_pop <- all_ts_dat$tot_pop/all_ts_dat$max_pop
 # remove NaN -- just 0s
 all_ts_dat$r_freq <- ifelse(is.nan(all_ts_dat$r_freq), 0, all_ts_dat$r_freq)
-colnames(all_ts_dat) <- c("ts", "S_pop", "I_pop", "R_pop", "tot_pop", "K_val", "B - Adaptive allele\nfrequency", "trial", "C - Infection\nprevelence", "max_pop", "A - Scaled\npopulation size")
+colnames(all_ts_dat) <- c("ts", "S_pop", "I_pop", "R_pop", "tot_pop", "K_val", "Adaptive allele\nfrequency", "trial", "Infection\nprevelence", "max_pop", "Scaled\npopulation size")
 
 # save this time series run
-saveRDS(all_ts_dat, file = "dat/all_ts_dat_0204.rds")
+saveRDS(all_ts_dat, file = "dat/all_ts_dat_0529.rds")
