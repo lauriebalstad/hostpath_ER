@@ -3,7 +3,7 @@
     "path": "C:/Users/lauri/Documents/GitHub/hostpath_ER/funcs/01_DR_timeseries.R",
     "project_path": "funcs/01_DR_timeseries.R",
     "type": "r_source",
-    "hash": "1645667525",
+    "hash": "3681804508",
     "contents": "",
     "dirty": false,
     "created": 1752874087039.0,
@@ -12,15 +12,15 @@
     "properties": {
         "source_window_id": "",
         "Source": "Source",
-        "cursorPosition": "314,19",
-        "scrollLine": "308"
+        "cursorPosition": "344,0",
+        "scrollLine": "41"
     },
-    "folds": "50|20|58|2|\n69|24|87|4|\n",
-    "lastKnownWriteTime": 1752875811,
+    "folds": "53|20|61|2|\n",
+    "lastKnownWriteTime": 1753137439,
     "encoding": "UTF-8",
     "collab_server": "",
     "source_window": "",
-    "last_content_update": 1752875811336,
+    "last_content_update": 1753137439808,
     "read_only": false,
     "read_only_alternatives": []
 }

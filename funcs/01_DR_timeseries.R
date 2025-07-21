@@ -3,20 +3,23 @@ library(parallel)
 library(foreach)
 library(doParallel)
 
-dr_data <- function(parm_vect, init_dat, tot_ri, num_ri) { # pop size and gen time info
+dr_data <- function(parm_vect, init_dat, tot_ri, num_ri, ngens) { # pop size and gen time info
   
   # note this takes in a compartment structure SIS, SIX, SIR 
   # second takes in an order: events order (e1, e2, e3) (B,M,R)
   # and then all the parameters
-  comp_str <- parm_vect[1]; event_order <- parm_vect[2]; freq_rate <- parm_vect[3] # structural
-  d_0 <- floor(parm_vect[4]/parm_vect[29]); ngens <- floor(parm_vect[5]/parm_vect[29]) # note ngens now parameter 5!!!
-  b_RR <- parm_vect[6]; b_WR <- parm_vect[7]; b_WW <- parm_vect[8]; b_sd <- parm_vect[9] # transmission
-  m_SRR <- parm_vect[10]; m_SWR <- parm_vect[11]; m_SWW <- parm_vect[12]; m_IRR <- parm_vect[13]; m_IWR <- parm_vect[14]; m_IWW <- parm_vect[15]; m_Ssd <- parm_vect[16]; m_Isd <- parm_vect[17] # mortality
-  r_RR <- parm_vect[18]; r_WR <- parm_vect[19]; r_WW <- parm_vect[20]; r_sd <- parm_vect[21] # recovery
-  l_RR <- parm_vect[22]; l_WR <- parm_vect[23]; l_WW  <- parm_vect[24]; l_sd <- parm_vect[25]; mut_rate <- parm_vect[26] # reproduction
-  K <- parm_vect[27]; K_sd <- parm_vect[28] # carrying capacity
-  disease_cycles <- parm_vect[29] # number of times to go through disease between reproduction cycles
-
+  comp_str <- parm_vect[1]; event_order <- parm_vect[2]
+  f_RR <- parm_vect[3]; f_WR <- parm_vect[4]; f_WW <- parm_vect[5]; f_sd <- parm_vect[6] # structural
+  # d_0 <- floor(parm_vect[4]/parm_vect[29]); r_0 <- parm_vect[5] # disease intro and init allele freq.
+  b_RR <- parm_vect[7]; b_WR <- parm_vect[8]; b_WW <- parm_vect[9]; b_sd <- parm_vect[10] # transmission
+  m_SRR <- parm_vect[11]; m_SWR <- parm_vect[12]; m_SWW <- parm_vect[13]; m_IRR <- parm_vect[14]; m_IWR <- parm_vect[15]; m_IWW <- parm_vect[16]; m_Ssd <- parm_vect[17]; m_Isd <- parm_vect[18] # mortality
+  r_RR <- parm_vect[19]; r_WR <- parm_vect[20]; r_WW <- parm_vect[21]; r_sd <- parm_vect[22] # recovery
+  l_RR <- parm_vect[23]; l_WR <- parm_vect[24]; l_WW  <- parm_vect[25]; l_sd <- parm_vect[26]; mut_rate <- parm_vect[27] # reproduction
+  K <- parm_vect[28]; K_sd <- parm_vect[29] # carrying capacity
+  N <- parm_vect[28] # number of individuals at start of simulation, all WW -- start at K
+  d_0 <- floor(parm_vect[30]/parm_vect[31]); disease_cycles <- parm_vect[31] # number of times to go through disease between reproduction cycles
+  r_0 <- parm_vect[32]; inf_0 <- parm_vect[33] # add inf_0, will be 0.1 in most cases
+  
   # get compartmetns
   if(comp_str == 1) compartments <- c("SIX")
   if(comp_str == 2) compartments <- c("SIS")
@@ -45,7 +48,7 @@ dr_data <- function(parm_vect, init_dat, tot_ri, num_ri) { # pop size and gen ti
   
   
   # construct initial inds: all clean
-  inds <- init_dat # from input
+  inds <- init_dat[[1]] # from input
   
   # check that northing is negative --> change to zero
   if (any(inds<0)) {
@@ -71,15 +74,32 @@ dr_data <- function(parm_vect, init_dat, tot_ri, num_ri) { # pop size and gen ti
       
       M <- floor(tot_ri/num_ri)
       
-      # construct initial inds: all clean
       ri_inds <- data.frame(ind_num = 1:M,
-                         inf_stat = rep("S", M), # all healthy
-                         ind_geno = rep("WW", M), # use init genos
-                         b_pheno = c(rnorm(M, mean=b_WW, sd=b_sd)), # transmission placeholder
-                         mS_pheno = c(rnorm(M, mean=m_SWW, sd=m_Ssd)), # S_WW type mortality
-                         mI_pheno = c(rnorm(M, mean=m_IWW, sd=m_Isd)), # mortality placeholder
-                         r_pheno = c(rnorm(M, mean=r_WW, sd=r_sd)) # revovery placeholder 
-      ) # phenos still in rates
+                         inf_stat = rep("S"),
+                         ind_geno = rep("WW"), 
+                         b_pheno = NA,
+                         f_pheno = NA, 
+                         mS_pheno = NA,
+                         mI_pheno=NA,
+                         r_pheno=NA)
+      
+      for (p in 1:dim(ri_inds)[1]) {
+        ri_inds$b_pheno[p] <- ifelse(ri_inds$ind_geno[p] == "WW", rnorm(1, mean=b_WW, sd=b_sd),
+                                  ifelse(ri_inds$ind_geno[p] == "RR", rnorm(1, mean=b_RR, sd=b_sd),
+                                         rnorm(1, mean=b_WR, sd=f_sd)))
+        ri_inds$f_pheno[p] <- ifelse(ri_inds$ind_geno[p] == "WW", rnorm(1, mean=f_WW, sd=f_sd),
+                                  ifelse(ri_inds$ind_geno[p] == "RR", rnorm(1, mean=f_RR, sd=f_sd),
+                                         rnorm(1, mean=f_WR, sd=f_sd)))
+        ri_inds$mS_pheno[p] <- ifelse(ri_inds$ind_geno[p] == "WW", rnorm(1, mean=m_SWW, sd=m_Ssd),
+                                   ifelse(ri_inds$ind_geno[p] == "RR", rnorm(1, mean=m_SRR, sd=m_Ssd),
+                                          rnorm(1, mean=m_SWR, sd=m_Ssd)))
+        ri_inds$mI_pheno[p] <- ifelse(ri_inds$ind_geno[p] == "WW", rnorm(1, mean=m_IWW, sd=m_Isd),
+                                   ifelse(ri_inds$ind_geno[p] == "RR", rnorm(1, mean=m_IRR, sd=m_Isd),
+                                          rnorm(1, mean=m_IWR, sd=m_Isd)))
+        ri_inds$r_pheno[p] <- ifelse(ri_inds$ind_geno[p] == "WW", rnorm(1, mean=r_WW, sd=r_sd),
+                                  ifelse(ri_inds$ind_geno[p] == "RR", rnorm(1, mean=r_RR, sd=r_sd),
+                                         rnorm(1, mean=r_WR, sd=r_sd)))
+      }
       
       inds <- rbind(inds, ri_inds)
       
