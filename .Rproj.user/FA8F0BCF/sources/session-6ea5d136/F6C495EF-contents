@@ -44,9 +44,9 @@ reintro_pars <- coexist_pars
 # first get no reintro example
 # parameters, starting point for reintros, number of reintroduced individauls, number of times w reintroduction
 no_ri <- dr_data(reintro_pars, pre_ri[6], 0, 0, 30)
-large_ri <- dr_data(reintro_pars, pre_ri[6], 52, 1, 30) 
+large_ri <- dr_data(reintro_pars, pre_ri[6], 120, 1, 30) 
 medium_ri  <- dr_data(reintro_pars, pre_ri[6], 26, 1, 30)
-small_ri  <- dr_data(reintro_pars, pre_ri[6], 52, 4, 30)
+small_ri  <- dr_data(reintro_pars, pre_ri[6], 60, 4, 30)
 
 # plot things
 ymax <- max(c(no_ri$tot_pop, large_ri$tot_pop, medium_ri$tot_pop, small_ri$tot_pop))

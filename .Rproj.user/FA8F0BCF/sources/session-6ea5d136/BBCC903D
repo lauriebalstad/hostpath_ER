@@ -1,19 +1,17 @@
 {
-    "id": "77744C27",
-    "path": "C:/Users/lauri/Documents/GitHub/hostpath_ER/figs/sim_fig_dat/01_sim_tsdat.R",
-    "project_path": "figs/sim_fig_dat/01_sim_tsdat.R",
+    "id": "BBCC903D",
+    "path": "C:/Users/lauri/Documents/GitHub/hostpath_ER/figs/figure_plot/02_plt_fig.R",
+    "project_path": "figs/figure_plot/02_plt_fig.R",
     "type": "r_source",
     "hash": "0",
     "contents": "",
     "dirty": false,
-    "created": 1753137502589.0,
+    "created": 1757352200365.0,
     "source_on_save": false,
-    "relative_order": 6,
+    "relative_order": 2,
     "properties": {
         "source_window_id": "",
-        "Source": "Source",
-        "cursorPosition": "42,38",
-        "scrollLine": "37"
+        "Source": "Source"
     },
     "folds": "",
     "lastKnownWriteTime": 1752859983,
