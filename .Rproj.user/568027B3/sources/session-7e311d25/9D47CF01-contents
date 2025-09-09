@@ -10,12 +10,12 @@ base_vect <- c(2, 2, # SIS, BGM -- can comp with 4 for MBG
                -1, -1, -1, 0.05, # 7-10 always dens dep transmission
                0.05, 0.05, 0.05, # 11-13 + 17 background mort 
                1, 1, 1, # 14-16 + 18 disease mort
-               0.01, 0.02, # 17-18 mort sd
-               0.05, 0.05, 0.05, 0.01, # 19-22 recovery, unused bc SIX (1)
-               1.5, 1.75, 2, 0.2, 0.005, # 23-27 reproduction & mutation
+               0.05, 0.05, # 17-18 mort sd
+               0.05, 0.05, 0.05, 0.05, # 19-22 recovery, unused bc SIX (1)
+               1.9, 2, 2.1, 0.05, 0.005, # 23-27 reproduction & mutation
                100, 4, # 28-29 carrying capacity things
-               100, 2, # 30-32 timing things # note change from d = 1 to d = 2???
-               0.1, 0.1, 150) # init R and init disease, ngens
+               90, 2, # 30-32 timing things # note change from d = 1 to d = 2???
+               0.1, 0.1, 120) # init R and init disease, ngens
 
 #-----FIG1: STRUCTURALS-----
 # so.... fig 1 will be comparision of structure across base model
@@ -37,17 +37,17 @@ sim_results_str <- mclapply(1:(N*rep_num), function(i){
   case_vect[35] <- rep_cases$`number`[i]
   # set disease transmission
   if (rep_cases$`transmission type`[i]==1) {
-    case_vect[7:9] <- 1 # transmission increased
+    case_vect[7:9] <- 2 # transmission increased (dens)
   }
   if (rep_cases$`transmission type`[i]==2) {
-    case_vect[3:5] <- 3 # transmission increased
+    case_vect[3:5] <- 3 # transmission increased (freq)
   }
   if (rep_cases$robustness[i] == 1) {
     case_vect[14] <- 0
     case_vect[15] <- 0.5
   } # 1 = mortality
   if (rep_cases$robustness[i] == 2) {
-    if (rep_cases$`transmission type`[i]==1) {case_vect[7:9] <- c(0, 0.5, 1)}
+    if (rep_cases$`transmission type`[i]==1) {case_vect[7:9] <- c(0, 1, 2)}
     if (rep_cases$`transmission type`[i]==2) {case_vect[3:5] <- c(0, 1.5, 3)}
   } # 1 = transmission
   if (rep_cases$robustness[i] == 3) {
@@ -69,9 +69,11 @@ saveRDS(sim_results_str, file = paste0("dat/str_fig_", format(Sys.time(), "%m%d"
 # comparing different cost/benefits
 # so.... fig 1 will be comparision of structure across base model
 sis_cb <- expand.grid("benefit" = c(0, 0.25, 0.5, 1), # 0 = total benefit, 1.5 = some cost for B & M, but opposite for G
-                      "cost" = c(1, 1.5, 2), # 1 = some cost, 2 = no cost
+                      "cost" = c(1.7, 1.9, 2.1), # 1.7 = some cost, 2.1 = no cost
+                      # "cost" = c(1.1, 1.9, 2.1), # 1 = some cost, 2 = no cost
                       "case" = c("\u03b2", "\u03bc", "\u03d2"), 
                       "compartments" = c(2, 3)) 
+                      # "compartments" = c(2)) 
 N <- dim(sis_cb)[1]
 sis_cb$number <- 1:N
 rep_num <- 1000 # 1 = testing run time, 400 = 5 tasks
@@ -84,7 +86,7 @@ sim_results_cb <- mclapply(1:(N*rep_num), function(i){
   cb_vect <- base_vect
   cb_vect[35] <- as.numeric(rep_sis_cb$`number`[i])
   cb_vect[1] <- as.numeric(rep_sis_cb$`compartment`[i]) # SIS or SIR
-  cb_vect[7:9] <- c(1, 1, 1) # density depend only 
+  cb_vect[7:9] <- c(2, 2, 2) # density depend only 
   # benefit update
   if (rep_sis_cb$case[i] == "\u03b2") {
     cb_vect[7] <- as.numeric(rep_sis_cb$`benefit`[i]) # sis_cb$benefit[cb]*cb_vect[8]
@@ -112,14 +114,14 @@ saveRDS(sim_results_cb, file = paste0("dat/cb_fig_", format(Sys.time(), "%m%d"),
 #-----FIG3: POP SIZES-----
 # comparing pop size/robustness/mutation rate
 sis_pop_mut <- expand.grid("population size" = c(50, 100, 500), # probably provides enough insight...
-                           "robustness" = c(3), # M, G only bc they are strongest ER (from fig 3)
-                           "mutation rate" = c(0.0005, 0.005, 0.01), 
-                           "compartments" = c(1, 2, 3)) # just for variation 
+                           "robustness" = c(1, 3), # M, G only bc they are strongest ER (from fig 3)
+                           "mutation rate" = c(0.0005, 0.005, 0.01),
+                           "compartments" = c(2, 3)) # just for variation
 N <- dim(sis_pop_mut)[1]
 sis_pop_mut$number <- 1:N
 rep_num <- 1000 # 1 = testing run time, 400 = 5 tasks
 rep_sis_pm <- matrix(rep(t(sis_pop_mut), rep_num), ncol = ncol(sis_pop_mut), byrow = T)
-rep_sis_pm <- as.data.frame(rep_sis_pm) 
+rep_sis_pm <- as.data.frame(rep_sis_pm)
 colnames(rep_sis_pm) <- colnames(sis_pop_mut)
 
 sim_results_pm <- mclapply(1:(N*rep_num), function(i){
@@ -127,7 +129,7 @@ sim_results_pm <- mclapply(1:(N*rep_num), function(i){
   case_vect <- base_vect
   case_vect[35] <- rep_sis_pm$number[i]
   case_vect[1] <- rep_sis_pm$compartments[i]
-  case_vect[7:9] <- c(1, 1, 1) # density dependent transmission
+  case_vect[7:9] <- c(2, 2, 2) # density dependent transmission
   case_vect[28] <- rep_sis_pm$`population size`[i]
   case_vect[27] <- rep_sis_pm$`mutation rate`[i]
   
@@ -147,9 +149,9 @@ sim_results_pm <- mclapply(1:(N*rep_num), function(i){
   # use base case cost for consistency
   
   # run simulation
-  cluster_run(case_vect) 
+  cluster_run(case_vect)
   
-}, mc.cores = parallel::detectCores()) 
+}, mc.cores = parallel::detectCores())
 
 # save things!
 saveRDS(sim_results_pm, file = paste0("dat/pm_fig_", format(Sys.time(), "%m%d"), ".Rdata"))
@@ -158,14 +160,14 @@ saveRDS(sim_results_pm, file = paste0("dat/pm_fig_", format(Sys.time(), "%m%d"),
 # other variable to check in the number of disease cycles between reproductions
 sis_dc <- expand.grid("disease cycles" = 1:3, # probably provides enough insight...
                       "robustness" = c(1, 3), # M, G only bc they are strongest ER (from fig 3)
-                      "event order" = c(2, 4, 6), 
-                      "transmission" = c(1, 2), 
-                      "compartments" = c(2, 3)) # 1 = density, 2 = envrionemntal 
+                      "event order" = c(2, 4, 6),
+                      "transmission" = c(1, 2),
+                      "compartments" = c(2, 3)) # 1 = density, 2 = envrionemntal
 N <- dim(sis_dc)[1]
 sis_dc$number <- 1:N
 rep_num <- 1000 # 1 = testing run time, 400 = 5 tasks
 rep_sis_dc <- matrix(rep(t(sis_dc), rep_num), ncol = ncol(sis_dc), byrow = T)
-rep_sis_dc <- as.data.frame(rep_sis_dc) 
+rep_sis_dc <- as.data.frame(rep_sis_dc)
 colnames(rep_sis_dc) <- colnames(sis_dc)
 
 sim_results_dc <- mclapply(1:(N*rep_num), function(i){
@@ -181,7 +183,7 @@ sim_results_dc <- mclapply(1:(N*rep_num), function(i){
   }
   
   if (rep_sis_dc$`transmission`[i] == 1) {
-    case_vect[7:9] <- 1
+    case_vect[7:9] <- 2
   }
   
   if (rep_sis_dc$robustness[i] == 1) {
@@ -200,9 +202,9 @@ sim_results_dc <- mclapply(1:(N*rep_num), function(i){
   # cycles stay the same, they'll get divided out by disease cycles (parameter 31...)
   
   # run simulation
-  cluster_run(case_vect) 
+  cluster_run(case_vect)
   
-}, mc.cores = parallel::detectCores()) 
+}, mc.cores = parallel::detectCores())
 
 # save things!
 saveRDS(sim_results_dc, file = paste0("dat/dc_fig_", format(Sys.time(), "%m%d"), ".Rdata"))
