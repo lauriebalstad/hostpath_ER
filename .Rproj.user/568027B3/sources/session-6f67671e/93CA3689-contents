@@ -113,10 +113,13 @@ tmp <- merge(str_dtf, cases, by.x = "parm_number", by.y = "number", all = T)
 # get summaries to plot
 prob_dat <- tmp %>% group_by(parm_number) %>% 
   summarize(`P(Ext)` = sum(extinct)/n()) 
-er_dat <- tmp %>% filter(extinct == 0 & pop_drop50 == 1 & at_K95 == 1 & r_allele_peak45 == 1) %>% 
+# er_dat <- tmp %>% filter(extinct == 0 & pop_drop50 == 1 & at_K95 == 1 & r_allele_peak45 == 1) %>% 
+#   group_by(parm_number) %>% 
+#   summarize(`P(ER)` = n()/1000)
+er_dat <- tmp %>% filter(extinct == 0 & abs(last_50-first_50-tot_50) <3 & tot_50 > 3 & at_K95 == 1 & r_allele_peak45 == 1) %>% 
   group_by(parm_number) %>% 
   summarize(`P(ER)` = n()/1000)
-il_dat <- tmp %>% filter(extinct == 0 & pop_drop50 == 1 & at_K95 == 1 & r_allele_peak45 == 0 & final_inf_prev < 0.25) %>% 
+il_dat <- tmp %>% filter(extinct == 0 & abs(last_50-first_50-tot_50) <3 & tot_50 > 3 & at_K95 == 1 & r_allele_peak45 == 0 & final_inf_prev < 0.25) %>% 
   group_by(parm_number) %>% 
   summarize(`P(IL)` = n()/1000)
 # merge
@@ -151,7 +154,7 @@ fig1B <- ggplot(plot_long, aes(robustness, value, col = `transmission type`)) +
 fig1 <- plot_grid(fig1A, fig1B, rel_widths= c(0.65, 1), nrow = 1)
 
 # save figure
-png("figs/figure_plot/structural_overview_0909.png",height=145,width=170,res=400,units='mm')
+png("figs/figure_plot/structural_overview_0909B.png",height=145,width=170,res=400,units='mm')
 print(fig1)
 dev.off()
 
@@ -171,10 +174,10 @@ cost_ben <- cost_ben %>% filter(compartments == 2)
 ex_dat <- cost_ben %>% filter(extinct == 1) %>% 
   group_by(benefit, cost, case, compartments) %>% 
   summarize(`P(Ext)` = n()/1000)
-er_dat <- cost_ben %>% filter(extinct == 0 & pop_drop50 == 1 & at_K95 == 1 & r_allele_peak45 == 1) %>% 
+er_dat <- cost_ben %>% filter(extinct == 0 & abs(last_50-first_50-tot_50) <3 & tot_50 > 3 & at_K95 == 1 & r_allele_peak45 == 1) %>% 
   group_by(benefit, cost, case, compartments) %>% 
   summarize(`P(ER)` = n()/1000)
-dr_dat <- cost_ben %>% filter(extinct == 0 & pop_drop50 == 1 & at_K95 == 1 & r_allele_peak45 == 0) %>%    
+dr_dat <- cost_ben %>% filter(extinct == 0 & abs(last_50-first_50-tot_50) <3 & tot_50 > 3 & at_K95 == 1 & r_allele_peak45 == 0) %>%    
   group_by(benefit, cost, case, compartments) %>% 
   summarize(`P(IL)` = n()/1000)
 plt_dat <- merge(ex_dat, er_dat) # , dr_dat)
@@ -191,7 +194,7 @@ cost_ben <- rename(cost_ben,
                  `Final R allele\nfrequency` = final_r_allele, 
                  `Final infection\nprevelence` = final_inf_prev, 
                  `Time to\nK (ER)` = firstK95)
-cb_all_long <- pivot_longer(cost_ben %>% filter(extinct == 0 & pop_drop50 == 1 & at_K95 == 1 & r_allele_peak45 == 1) %>% 
+cb_all_long <- pivot_longer(cost_ben %>% filter(extinct == 0 & abs(last_50-first_50-tot_50) <3 & tot_50 > 3 & at_K95 == 1 & r_allele_peak45 == 1) %>% 
                               select(c(9, 11, 28, 30:33)), 
                             cols = 1:3, names_to = "outcome", values_to = "value")
 cb_summ_long$outcome_f <- factor(cb_summ_long$outcome, levels = c("P(Ext)", "P(ER)", "P(IL)", 
@@ -214,7 +217,7 @@ fig2 <- ggplot(NULL, aes(x=as.factor(benefit), y=value, col = as.factor(cost))) 
   theme_bw() + theme(text = element_text(size = 12), legend.position = "bottom") + 
   labs(x = "Allele strength", col = "Allele fecundity", y = NULL)
 # save figure
-png("figs/figure_plot/cost_benefit_0909.png",height=175,width=170,res=400,units='mm')
+png("figs/figure_plot/cost_benefit_0909B.png",height=175,width=170,res=400,units='mm')
 print(fig2)
 dev.off()
 
@@ -235,7 +238,7 @@ ex_risk$compartments <- recode(ex_risk$compartments, "1" = "SIX", "2" = "SIS", "
 ex_dat <- ex_risk %>% filter(extinct == 1) %>% 
   group_by(parm_number) %>% 
   summarize(`P(Ext)` = n()/1000)
-er_dat <- ex_risk %>% filter(extinct == 0 & pop_drop50 == 1 & at_K95 == 1 & r_allele_peak45 == 1) %>% 
+er_dat <- ex_risk %>% filter(extinct == 0 & abs(last_50-first_50-tot_50) <3 & tot_50 > 3 & at_K95 == 1 & r_allele_peak45 == 1) %>% 
   # group_by(`population size`, `robustness`, `mutation rate`, `compartments`) %>% 
   group_by(parm_number) %>% 
   summarize(`P(ER))` = n()/1000)
@@ -256,7 +259,7 @@ for (i in 1:length(pm_summ_long$value)) {
 ex_risk$firstK95 <- ex_risk$firstK95-45 # remove 50 year burn in period
 ex_risk <- rename(ex_risk, 
                    `Time to\nK (ER)` = firstK95)
-pm_all_long <- pivot_longer(ex_risk %>% filter(extinct == 0 & pop_drop50 == 1 & at_K95 == 1 & r_allele_peak45 == 1) %>% 
+pm_all_long <- pivot_longer(ex_risk %>% filter(extinct == 0 & abs(last_50-first_50-tot_50) <3 & tot_50 > 3 & at_K95 == 1 & r_allele_peak45 == 1) %>% 
                               select(c(28, 30:33)), 
                             cols = 1, names_to = "outcome", values_to = "value")
 custom_y <- list(
@@ -278,7 +281,7 @@ fig3 <- ggplot(NULL, aes(x=as.factor(`population size`), y=value, col=as.factor(
   theme_bw() + theme(text = element_text(size = 12), legend.position = "bottom") + 
   labs(x = "Population size", col = "Mutation rate", y = NULL)
 # save figure
-png("figs/figure_plot/pop_mut_0909.png",height=145,width=85,res=400,units='mm')
+png("figs/figure_plot/pop_mut_0909B.png",height=145,width=85,res=400,units='mm')
 print(fig3)
 dev.off()
 # if 3x3 grid, width = 170 (this is pm_fig_A_0209 or pm_fig_B_0209, using mortality blocking (2))
@@ -307,12 +310,12 @@ sis_dc$robustness <- recode(sis_dc$robustness, "1" = "\u03bc", "2" = "\u03b2", "
 sis_dc$compartments <- recode(sis_dc$compartments, "1" = "SIX", "2" = "SIS", "3" = "SIR")
 sis_dc$transmission <- recode(sis_dc$transmission, "1" = "Density-dependent", "2" = "Environmental")
 # get summaries to plot -- P(ER) + T_K + max/final R/inf (6) for the ER cases only --> note more generous def of pop drop
-er_dat <- dc_dat %>% filter(extinct == 0 & pop_drop50 == 1 & at_K95 == 1 & r_allele_peak45 == 1) %>% 
+er_dat <- dc_dat %>% filter(extinct == 0 & abs(last_50-first_50-tot_50) <3 & tot_50 > 3 & at_K95 == 1 & r_allele_peak45 == 1) %>% 
   group_by(`parm_number`) %>% 
   summarize(`P(ER)` = n()/1000)
 tmp <- merge(er_dat, sis_dc, by = "parm_number", all = T)
 er_dat <- tmp; er_dat[is.na(er_dat)] <- 0
-dr_dat <- dc_dat %>% filter(extinct == 0 & pop_drop50 == 1 & at_K95 == 1 & r_allele_peak45 == 0) %>%    
+dr_dat <- dc_dat %>% filter(extinct == 0 & abs(last_50-first_50-tot_50) <3 & tot_50 > 3 & at_K95 == 1 & r_allele_peak45 == 0) %>%    
   group_by(parm_number) %>% 
   summarize(`P(IL)` = n()/1000)
 tmp <- merge(dr_dat, sis_dc, by = "parm_number", all = T)
@@ -329,7 +332,7 @@ dc_dat <- rename(dc_dat,
                    `Final infection\nprevelence` = final_inf_prev, 
                    `Time to\nK (ER)` = firstK95)
 dc_timeK_long <- pivot_longer(dc_dat %>% 
-                                filter(extinct == 0 & pop_drop50 == 1 & at_K95 == 1 & r_allele_peak45 == 1) %>% 
+                                filter(extinct == 0 & abs(last_50-first_50-tot_50) <3 & tot_50 > 3 & at_K95 == 1 & r_allele_peak45 == 1) %>% 
                                 select(c(9, 11, 28, 30:34)), 
                               cols = 1:3, names_to = "outcome", values_to = "value")
 tmp_dat <- merge(er_dat, ex_dat)
@@ -359,6 +362,6 @@ figS1 <- ggplot(NULL, aes(x=as.factor(`disease cycles`), y=value,
   labs(x = "Disease cycles between reproduction", col = "Robustness type", y = NULL)
 # check labels/facet options! can either filter by one of the robustness or by one of the transmission 
 # save figure
-png("figs/figure_plot/dc_0909_dens_sis.png",height=205,width=170,res=400,units='mm')
+png("figs/figure_plot/dc_0909B_dens_sis.png",height=205,width=170,res=400,units='mm')
 print(figS1)
 dev.off()
