@@ -133,8 +133,8 @@ plot_dat$robustness <- recode(plot_dat$robustness, "1" = "\u03bc", "2" = "\u03b2
 # convert to long
 plot_long <- pivot_longer(plot_dat, cols = 2:4, names_to = "outcome", values_to = "value")
 plot_long$value <- ifelse(is.na(plot_long$value), 0, plot_long$value)
-plot_long$plus <- plot_long$value + 0.035
-plot_long$less <- plot_long$value - 0.035
+plot_long$plus <- plot_long$value + 0.036
+plot_long$less <- plot_long$value - 0.036
 for (i in 1: length(plot_long$value)) {
   if (plot_long$plus[i] > 1) plot_long$plus[i] <- 1
   if (plot_long$less[i] < 0) plot_long$less[i] <- 0
@@ -183,8 +183,8 @@ dr_dat <- cost_ben %>% filter(extinct == 0 & abs(last_50-first_50-tot_50) <3 & t
 plt_dat <- merge(ex_dat, er_dat) # , dr_dat)
 # rbind creates a ton of NAs but it's okay...
 cb_summ_long <- pivot_longer(plt_dat, cols= 5:6, names_to = "outcome", values_to = "value")
-cb_summ_long$plus <- cb_summ_long$value + 0.035
-cb_summ_long$less <- cb_summ_long$value - 0.035
+cb_summ_long$plus <- cb_summ_long$value + 0.036
+cb_summ_long$less <- cb_summ_long$value - 0.036
 for (i in 1:length(cb_summ_long$value)) {
   if (cb_summ_long$plus[i] > 1) cb_summ_long$plus[i] <- 1
   if (cb_summ_long$less[i] < 0) cb_summ_long$less[i] <- 0
@@ -250,8 +250,8 @@ tmp$robustness <- recode(tmp$robustness, "1" = "\u03bc", "2" = "\u03b2", "3" = "
 tmp[is.na(tmp)] <- 0
 # plt_dat <- rbind(ex_dat, er_dat)
 pm_summ_long <- pivot_longer(tmp[, 2:7], cols= 1:2, names_to = "outcome", values_to = "value")
-pm_summ_long$plus <- pm_summ_long$value + 0.035
-pm_summ_long$less <- pm_summ_long$value - 0.035
+pm_summ_long$plus <- pm_summ_long$value + 0.036
+pm_summ_long$less <- pm_summ_long$value - 0.036
 for (i in 1:length(pm_summ_long$value)) {
   if (pm_summ_long$plus[i] > 1) pm_summ_long$plus[i] <- 1
   if (pm_summ_long$less[i] < 0) pm_summ_long$less[i] <- 0
@@ -341,8 +341,8 @@ tmp_dat <- merge(tmp_dat, dr_dat)
 # dc_ex_long <- pivot_longer(ex_dat, cols= c(2), names_to = "outcome", values_to = "value")
 # dc_dr_long <- pivot_longer(dr_dat, cols= c(2), names_to = "outcome", values_to = "value")
 dc_all_long <- pivot_longer(tmp_dat[, 2:9], cols= 6:8, names_to = "outcome", values_to = "value")
-dc_all_long$plus <- dc_all_long$value + 0.035
-dc_all_long$less <- dc_all_long$value - 0.035
+dc_all_long$plus <- dc_all_long$value + 0.036
+dc_all_long$less <- dc_all_long$value - 0.036
 for (i in 1:length(dc_all_long$value)) {
   if (dc_all_long$plus[i] > 1) dc_all_long$plus[i] <- 1
   if (dc_all_long$less[i] < 0) dc_all_long$less[i] <- 0
