@@ -13,7 +13,7 @@ head(parm_mat)
 # will need 500 iterations of each parmeter combo
 N <- dim(parm_mat)[1]
 # print(N)
-rep_num <- 334 # need to run 3 times, change to 333 for next run sets
+rep_num <- 600 # need to run 3 times, change to 333 for next run sets
 rep_parm <- matrix(rep(t(parm_mat), rep_num), ncol = ncol(parm_mat), byrow = T)
 
 # make a csv file to write to

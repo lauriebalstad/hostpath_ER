@@ -34,7 +34,7 @@ colnames(cb_dtf_A) <- c("extinct",
                         "at_K95", "firstK95",
                         "r_ts_d0", "parm_number")
 
-dc_dat_A <- readRDS("dat/dc_fig_0910.Rdata")
+dc_dat_A <- readRDS("dat/dc_fig_0915.Rdata")
 dc_dtf_A <- as.data.frame(matrix(unlist(dc_dat_A), ncol = 29, byrow = T))
 colnames(dc_dtf_A) <- c("extinct", 
                         "pop_drop20", "pop_drop50", "pop_drop80",
@@ -96,7 +96,7 @@ colnames(cb_dtf_B) <- c("extinct",
                         "at_K95", "firstK95",
                         "r_ts_d0", "parm_number")
 
-dc_dat_B <- readRDS("dat/dc_fig_0911.Rdata")
+dc_dat_B <- readRDS("dat/dc_fig_0916.Rdata")
 dc_dtf_B <- as.data.frame(matrix(unlist(dc_dat_B), ncol = 29, byrow = T))
 colnames(dc_dtf_B) <- c("extinct", 
                         "pop_drop20", "pop_drop50", "pop_drop80",
@@ -127,25 +127,25 @@ colnames(pm_dtf_B) <- c("extinct",
                         "r_ts_d0", "parm_number")
 
 #-----CALC PROBS & MERGE LIKE DATA: EX-----
-str_ex_A <- str_dtf_A %>% filter(extinct == 1) %>% group_by(parm_number) %>% summarise(`P(extinct) - A` = n()/1000)
-str_ex_B <- str_dtf_B %>% filter(extinct == 1) %>% group_by(parm_number) %>% summarise(`P(extinct) - B` = n()/1000)
+str_ex_A <- str_dtf_A %>% filter(extinct == 1) %>% group_by(parm_number) %>% summarise(`P(Ext) - A` = n()/1000)
+str_ex_B <- str_dtf_B %>% filter(extinct == 1) %>% group_by(parm_number) %>% summarise(`P(Ext) - B` = n()/1000)
 str_ex <- merge(str_ex_A, str_ex_B, by = "parm_number", all = T)
-str_ex$diff <- ifelse(is.na(str_ex$`P(extinct) - A`), 0, str_ex$`P(extinct) - A`) - ifelse(is.na(str_ex$`P(extinct) - B`), 0, str_ex$`P(extinct) - B`)
+str_ex$diff <- ifelse(is.na(str_ex$`P(Ext) - A`), 0, str_ex$`P(Ext) - A`) - ifelse(is.na(str_ex$`P(Ext) - B`), 0, str_ex$`P(Ext) - B`)
 
-pm_ex_A <- pm_dtf_A %>% filter(extinct == 1) %>% group_by(parm_number) %>% summarise(`P(extinct) - A` = n()/1000)
-pm_ex_B <- pm_dtf_B %>% filter(extinct == 1) %>% group_by(parm_number) %>% summarise(`P(extinct) - B` = n()/1000)
+pm_ex_A <- pm_dtf_A %>% filter(extinct == 1) %>% group_by(parm_number) %>% summarise(`P(Ext) - A` = n()/1000)
+pm_ex_B <- pm_dtf_B %>% filter(extinct == 1) %>% group_by(parm_number) %>% summarise(`P(Ext) - B` = n()/1000)
 pm_ex <- merge(pm_ex_A, pm_ex_B, by = "parm_number", all = T)
-pm_ex$diff <- ifelse(is.na(pm_ex$`P(extinct) - A`), 0, pm_ex$`P(extinct) - A`) - ifelse(is.na(pm_ex$`P(extinct) - B`), 0, pm_ex$`P(extinct) - B`)
+pm_ex$diff <- ifelse(is.na(pm_ex$`P(Ext) - A`), 0, pm_ex$`P(Ext) - A`) - ifelse(is.na(pm_ex$`P(Ext) - B`), 0, pm_ex$`P(Ext) - B`)
 
-dc_ex_A <- dc_dtf_A %>% filter(extinct == 1) %>% group_by(parm_number) %>% summarise(`P(extinct) - A` = n()/1000)
-dc_ex_B <- dc_dtf_B %>% filter(extinct == 1) %>% group_by(parm_number) %>% summarise(`P(extinct) - B` = n()/1000)
+dc_ex_A <- dc_dtf_A %>% filter(extinct == 1) %>% group_by(parm_number) %>% summarise(`P(Ext) - A` = n()/1000)
+dc_ex_B <- dc_dtf_B %>% filter(extinct == 1) %>% group_by(parm_number) %>% summarise(`P(Ext) - B` = n()/1000)
 dc_ex <- merge(dc_ex_A, dc_ex_B, by = "parm_number", all = T)
-dc_ex$diff <- ifelse(is.na(dc_ex$`P(extinct) - A`), 0, dc_ex$`P(extinct) - A`) - ifelse(is.na(dc_ex$`P(extinct) - B`), 0, dc_ex$`P(extinct) - B`)
+dc_ex$diff <- ifelse(is.na(dc_ex$`P(Ext) - A`), 0, dc_ex$`P(Ext) - A`) - ifelse(is.na(dc_ex$`P(Ext) - B`), 0, dc_ex$`P(Ext) - B`)
 
-cb_ex_A <- cb_dtf_A %>% filter(extinct == 1) %>% group_by(parm_number) %>% summarise(`P(extinct) - A` = n()/1000)
-cb_ex_B <- cb_dtf_B %>% filter(extinct == 1) %>% group_by(parm_number) %>% summarise(`P(extinct) - B` = n()/1000)
+cb_ex_A <- cb_dtf_A %>% filter(extinct == 1) %>% group_by(parm_number) %>% summarise(`P(Ext) - A` = n()/1000)
+cb_ex_B <- cb_dtf_B %>% filter(extinct == 1) %>% group_by(parm_number) %>% summarise(`P(Ext) - B` = n()/1000)
 cb_ex <- merge(cb_ex_A, cb_ex_B, by = "parm_number", all = T)
-cb_ex$diff <- ifelse(is.na(cb_ex$`P(extinct) - A`), 0, cb_ex$`P(extinct) - A`) - ifelse(is.na(cb_ex$`P(extinct) - B`), 0, cb_ex$`P(extinct) - B`)
+cb_ex$diff <- ifelse(is.na(cb_ex$`P(Ext) - A`), 0, cb_ex$`P(Ext) - A`) - ifelse(is.na(cb_ex$`P(Ext) - B`), 0, cb_ex$`P(Ext) - B`)
 
 fig_ex <- rbind(str_ex, pm_ex, dc_ex, cb_ex)
 
@@ -197,7 +197,7 @@ fig_il <- rbind(str_il, pm_il, dc_il, cb_il)
 
 #-----PLOT HISTS-----
 # add column and pivot longer
-fig_ex$metric <- rep("P(extinct)")
+fig_ex$metric <- rep("P(Ext)")
 fig_er$metric <- rep("P(ER)")
 fig_il$metric <- rep("P(IL)")
 fig_tot <- rbind(fig_ex[, c(1, 4, 5)], fig_er[, c(1, 4, 5)], fig_il[, c(1, 4, 5)])
@@ -208,7 +208,7 @@ comp_sim_box <- ggplot(fig_long, aes(x = value, fill = metric)) +
   geom_boxplot(col = "black") + 
   scale_fill_manual(values = c("#ac1457", "#DB6341", "#f1c4a2")) + 
   facet_wrap(~metric, nrow = 3) + 
-  labs(x = "difference across two test simulations") + 
+  labs(x = "Difference across two test simulations") + 
   theme_bw() + theme(legend.position = "none")
 
 # histograms?
@@ -216,7 +216,7 @@ comp_sim_hist <- ggplot(fig_long, aes(x = value, fill = metric)) +
   geom_histogram(col = "black", bins = 30) + 
   scale_fill_manual(values = c("#ac1457", "#DB6341", "#f1c4a2")) + 
   facet_wrap(~metric, nrow = 3) + 
-  labs(x = "difference across two test simulations", y = NULL) + 
+  labs(x = "Difference across two test simulations", y = NULL) + 
   theme_bw() + theme(legend.position = "none", 
                      axis.text.x = element_text(angle = 45, hjust = 1))
 

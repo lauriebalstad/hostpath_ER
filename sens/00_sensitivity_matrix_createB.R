@@ -64,7 +64,7 @@ parm_mat[,27] <- qunif(mat[,13], 0.001, 0.01) # mutation rate really little!
 parm_mat[,28] <- qunif(mat[,14], 70, 700) # K -- give good range
 parm_mat[,29] <- qunif(mat[,15], 3, 7) # keep K sd pretty small?
 parm_mat[,30] <- rep(90) # d_0 as whole number
-parm_mat[,31] <- ceiling(qunif(mat[,17], 0, 3)) # 1-3 disease cycles
+parm_mat[,31] <- ceiling(qunif(mat[,17], 1, 5)) # 2-5 disease cycles
 parm_mat[,32] <- rep(0.1) # init r small 
 parm_mat[,33] <- qunif(mat[,16], 0.05, 0.15) # proportion of I individuals (set to 0.1 in rep'd sims, if at 0 means 1 individual starts as infected)
 parm_mat[,34] <- rep(120) # ngens between 120-140
@@ -92,9 +92,11 @@ parm_mat[which(parm_mat[,c(1:2, 6, 10:29)]<0)] = 0 # allow environment to go neg
 
 # indexing
 parm_mat[,36] <- 1:N # this will be parm_num
+bd_mat <- as.data.frame(mat[, c(4,5, 6)]); bd_mat$parm_number <- 1:N; colnames(bd_mat) <- c("benefit", "dominance", "number")
 
 # then will need to repeat the data frame 500 times, bc need 500 sims per parameter combination
 
 # saved as sensitivity_data/mat_var.RDS
 # 0131 saveRDS(parm_mat, "dat/mat_var_0131.Rdata")
 saveRDS(parm_mat, "dat/mat_var_0909.Rdata")
+saveRDS(bd_mat, "dat/mat_bd_0909.Rdata")
