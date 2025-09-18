@@ -1,0 +1,28 @@
+{
+    "id": "0805AF16",
+    "path": null,
+    "project_path": null,
+    "type": "object_explorer",
+    "hash": "0",
+    "contents": "",
+    "dirty": false,
+    "created": 1758226267843.0,
+    "source_on_save": false,
+    "relative_order": 7,
+    "properties": {
+        "id": "769e1b289e064875810517f4d1c8feea",
+        "name": "cb_dat",
+        "title": "cb_dat",
+        "language": "R",
+        "source_window_id": "",
+        "Source": "Source"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 7310014143394750496,
+    "encoding": "",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1758226267843,
+    "read_only": false,
+    "read_only_alternatives": []
+}

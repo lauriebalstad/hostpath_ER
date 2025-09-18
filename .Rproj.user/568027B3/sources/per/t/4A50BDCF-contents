@@ -1,0 +1,946 @@
+#clear all so script runs clean
+#rm(list=ls())
+library(ggplot2)
+library(ggpubr)
+library(dplyr)
+library(tibble)
+library(parallel) #for using multiple cores (mclapply for mac and linux, parLapply for windows)
+library(randomForest)
+library(rpart)
+library(rpart.plot)
+#library(randomForestExplainer)
+#library(reprtree) # to use this, download or clonse repo from github araastat/reprtree
+
+# import functions from other scripts
+source('parameterization/params.R')
+source('sim_scripts/pop_dyn_functions.R')
+source('sim_scripts/analyses.R')
+
+########################################################
+# Name: restoration_season
+# Runs a seasonal update and flags when a restoration cue is met
+# Arguments:
+#   lh: string, "onlybank", "onlyage", "neither" or "mixed"
+#   X_ts: matrix (16x4n+1), timeseries of biomass stage distribution
+#   gD_ts: vector (4n), timeseries of grazing rates on drift kelp
+#   idx: starts from 1, the year in the simulation that we are working on
+#   graz_params: dictionary including k, g, epsilon, p_M, p_J, p_A
+#   year_params: dictionary (4), time-dependent demographic variables for 4 seasons in the current  year-type
+#   dens_dep_params: dictionary including alpha, beta_M, beta_J, beta_A
+#   flag: bool, to restore or not to restore, TRUE if there was a flag thrown in the previous year
+#   cue: string, 'A' - adult biomass cue, 'J' - juvenile biomass cue, 'G' - grazing cue, 'NONE' - no intervention 
+#   sampled_interv_params: vector (5), containing M_eff, J_eff, D_eff, perc, wait
+#   s: int, indicates which season we're working on, 1 - spring, 2 - summer, 3 - fall, 4 - winter
+# Returns:
+#   list containing:
+#   X_ts: matrix (16x4n+1), updated timeseries of biomass distribution
+#   gD_ts: vector (4n), updated timeseries of grazing rates on drift kelp
+#   flag: bool, TRUE if a cue was triggered this year
+restoration_season <- function(lh, X_ts, gD_ts, year_params, dens_dep_params, 
+                               flag, cue, sampled_interv_params, s, hist_baseline_info){
+  # previous timestep
+  t_end <- which(colSums(is.na(X_ts)) > 0)[1] - 1 # the column before the fist column that is NA
+  X <- X_ts[,t_end]
+  
+  # pull out previous wndo years for threshold calculations
+  # t_start <- t_end-(sampled_interv_params[4]*4)+1 # let's say t_end=9, idx=3, wndo=2, then t_start=2 (spring)
+  # if (t_start<=0){t_start<-1}
+  # X_wndo <- X_ts[,t_start:t_end]
+  # g_wndo <- gD_ts[t_start-1:t_end-1] # starts from 1 while X_ts starts from 2
+  
+  # run seasonal update
+  new_info <- season(lh, graz_params, year_params[[s]], dens_dep_params, X, s)
+  X <- new_info[[1]]
+  X_ts[,t_end+1] <- X # save it into complete timeseries
+  g <- new_info[[4]][4] # g_vec[4] is g_D
+  gD_ts[t_end] <- g
+  
+  # throw flags for intervention next spring
+  # for cue 'J', record whether J<threshold, throw flag to intervene at start of spring next year if so
+  if (cue=='J' & s==1){
+    # calculate threshold as perc percentile of springtime juveniles (row 8) in past wndo years
+#    past_J <- X_wndo[8,]
+    # if (idx>3){
+    #   # after there's more than 2 springtimes, pick out just the springtime columns to include in this threshold calculation
+    #   # X_wndo ends with winter and begins with spring. 1,2,3,4. if idx>3, use only spring: 1 to ncol-3, every 4
+    #   past_J <- X_wndo[8,seq(1,ncol(X_wndo)-3,4)]
+    # }
+    if (X[8]<=quantile(hist_baseline_info[[2]], sampled_interv_params[4])){ 
+      flag<-TRUE
+    }
+    else{flag<-FALSE} # put the flag down
+  }
+  # for cue 'A', record whether A<threshold, throw flag to intervene at start of spring next year if so
+  else if (cue=='A' & s==2){
+    # past_A <- colSums(X_wndo[9:15,])
+    # if (idx>3){
+    #   # after there's more than 2 summertimes, pick out just the summertime columns to include in this threshold calculation
+    #   past_A <- past_A[seq(2,length(past_A)-2,4)] # X_wndo ends with winter and begins with spring. 1,2,3,4. 2 to ncol-2, every 4
+    # }
+    if (sum(X[9:15])<=quantile(hist_baseline_info[[1]], sampled_interv_params[4])){ 
+      flag<-TRUE
+    }
+    else{flag<-FALSE} # put the flag down
+  }
+  # for cue 'G', record whether g_D<threshold, throw flag to intervene at start of spring next year if so
+  else if (cue=='G'){
+    if (g<=quantile(hist_baseline_info[[3]], sampled_interv_params[4])){
+      flag<-TRUE
+    }
+    else{flag<-FALSE} # put the flag down
+  }
+  
+  # if (t_end%%10==0){
+  #   print(X_ts)
+  # }
+  
+  return(list(X_ts, gD_ts, flag))
+}  
+
+# Name: restoration year
+# Runs model for 4 seasons (Spring-Spring), with intervention
+# Arguments:
+#   lh: string, "onlybank", "onlyage", "neither" or "mixed"
+#   X_ts: matrix (16x4n+1), timeseries of biomass stage distribution
+#   gD_ts: vector (4n), timeseries of grazing rates on drift kelp
+#   idx: starts from 1, the year in the simulation that we are working on
+#   graz_params: dictionary including k, g, epsilon, p_M, p_J, p_A
+#   year_params: dictionary (4), time-dependent demographic variables for 4 seasons in the current  year-type
+#   dens_dep_params: dictionary including alpha, beta_M, beta_J, beta_A
+#   flag: bool, to restore or not to restore, TRUE if there was a flag thrown in the previous year
+#   cue: string, 'A' - adult biomass cue, 'J' - juvenile biomass cue, 'G' - grazing cue, 'NONE' - no intervention 
+#   sampled_interv_params: vector (5), containing M_eff, J_eff, D_eff, perc, wait
+#   num_interv_yrs: int, running counter for how many years of intervention have accumulated over the simulation
+# Returns:
+#   list containing:
+#   X_ts: matrix (16x4n+1), updated timeseries of biomass distribution
+#   gD_ts: vector (4n), updated timeseries of grazing rates on drift kelp
+#   flag: bool, TRUE if a cue was triggered this year
+#   num_interv_years: int, updated number of spring seasons undergoing intervention
+restoration_year <- function(lh, X_ts, gD_ts, year_params, dens_dep_params, #idx, 
+                             flag, cue, sampled_interv_params, num_interv_yrs, 
+                             num_flag_yrs, hist_baseline_info, idx, burnin){
+  #print(paste0('flag at top of year: ', flag))
+  #print(paste0('num_interv_yrs at top of year: ', num_interv_yrs)) # this doesn't
+  #print(paste0('num_flag_yrs at top of year: ', num_flag_yrs)) # this counts up
+  
+  # previous timestep
+  t_end <- which(colSums(is.na(X_ts)) > 0)[1] - 1 # the column before the fist column that is NA
+ # X <- X_ts[,t_end]
+  
+  # Add to wait time counter if restoration cue was flagged in the previous year
+  if (flag==TRUE){
+    num_flag_yrs <- num_flag_yrs+1
+  }
+  
+  #print(is.na(flag))
+  #print(is.na(num_flag_yrs))
+  
+  # Run intervention if cue has been flagged for wait years
+  if (num_flag_yrs==sampled_interv_params[5] & cue!='NONE' ){
+    X_ts[,t_end] <- X_ts[,t_end] + c(sampled_interv_params[1],0,0,0,0,0,0,sampled_interv_params[2],0,0,0,0,0,0,0,sampled_interv_params[3])
+    num_flag_yrs <- 0 # reset counter
+    if (idx>burnin){ # start counting the intervention years after burnin
+      num_interv_yrs <- num_interv_yrs+1
+    }
+    #print("intervened this year!")
+  }
+  
+  # apply seasons
+  for (s in 1:4){
+    update <- restoration_season(lh, X_ts, gD_ts, year_params, dens_dep_params, 
+                                 flag, cue, sampled_interv_params, s, hist_baseline_info)
+    X_ts <- update[[1]]
+    gD_ts <- update[[2]]
+    flag <- update[[3]]
+  }
+  
+  return(list(X_ts, gD_ts, flag, num_interv_yrs, num_flag_yrs))
+}  
+
+# Name: restoration_sim
+# Runs model for many years and produce time series of stage distribution
+# Arguments:
+#   lh: string, "onlybank", "onlyage", "neither" or "mixed"
+#   vari_params: dictionary (3), season-dependent demographic variables for 3 year-types. Each dictionary contains 4 seasons in the respective year-type
+#   dens_dep_params: dictionary including alpha, beta_M, beta_JA
+#   years: vector (n) of integers indicating year types: 1 good, 2 neural, 3 bad
+#   cue: string, 'A' - adult biomass cue, 'J' - juvenile biomass cue, 'G' - grazing cue, 'NONE' - no intervention 
+#   sampled_interv_params: vector (5), containing M_eff, J_eff, D_eff, perc, wait
+#   burnin: int, number of years to cut out of beginning of simulation results
+#   hist_baseline_info: list or bool, list of n_sims outcomes in historical scenario, FALSE if not taking in baselines
+# Returns:
+#   list containing:
+#     1. Final fall microscopic biomass
+#     2. Final summer adult biomass
+#     3. Final spring juvenile biomass
+#     4. 1/CV for live kelp biomass
+#     5. proportion of years above threshold (if hist_baseline_info is not FALSE)
+#     6. number of intervention years
+#     7. realized grazing rate on drift kelp
+restoration_sim <- function(lh, vari_params, dens_dep_params, 
+                            years, cue, sampled_interv_params, burnin, hist_baseline_info){
+  #print(years)
+  
+  # Make containers for biomasses and grazing over time
+  X_ts <- matrix(nrow=16, ncol=1+(n*4))
+  X_ts[,1] <- X_init # initialize with initial biomasses
+  gD_ts <- vector(length=4*n)
+  # Make a counter for restoration years
+  num_interv_yrs <- 0
+  # Set initial flag status, we will not intervene in 1st year
+  flag <- FALSE
+  # Tracking number of years the flag has been thrown
+  num_flag_yrs <- 0
+  
+  # Loop through years
+  for (idx in 1:n){
+    yr <- years[idx]
+    #print(paste0("flag at top of year: ", flag))
+    update <- restoration_year(lh, X_ts, gD_ts, vari_params[[yr]], dens_dep_params, 
+                               flag, cue, sampled_interv_params, num_interv_yrs, num_flag_yrs, 
+                               hist_baseline_info, idx, burnin)
+    # Populate data structures
+    X_ts <- update[[1]]
+    gD_ts <- update[[2]]
+    flag <- update[[3]]
+    num_interv_yrs <- update[[4]] # conditional, num_interv_yrs increases only after idx>burnin
+    num_flag_yrs <- update[[5]]
+  }
+  
+  df <- summary(X_ts, years, n)
+  #print(tail(df)) # looks good
+  metrics <- restoration_outcomes(df, burnin, hist_baseline_info)
+  #print(metrics)
+  out <- append(metrics, num_interv_yrs)
+  out <- append(out, mean(gD_ts)) 
+  
+  # if hist_baseline_info are the baseline lists, then out is
+  # Mfal, Asum, Jspr, 1/cv, persist, num_interv_yrs, gD
+  
+  # if hist_baseline_info is FALSE, then out is
+  # Mfal, Asum, Jspr, 1/cv, num_interv_yrs, gD
+  
+  return(out)
+}
+
+# same as restortion_sim, except return the raw timeseries matrix instead of outcome metrics
+restoration_sim_ts <- function(lh, vari_params, dens_dep_params, 
+                            years, cue, sampled_interv_params, burnin, hist_baseline_info){
+  #print(years)
+  
+  # Make containers for biomasses and grazing over time
+  X_ts <- matrix(nrow=16, ncol=1+(n*4))
+  X_ts[,1] <- X_init # initialize with initial biomasses
+  gD_ts <- vector(length=4*n)
+  # Make a counter for restoration years
+  num_interv_yrs <- 0
+  # Set initial flag status, we will not intervene in 1st year
+  flag <- FALSE
+  # Tracking number of years the flag has been thrown
+  num_flag_yrs <- 0
+  
+  # Loop through years
+  for (idx in 1:n){
+    yr <- years[idx]
+    #print(paste0("flag at top of year: ", flag))
+    update <- restoration_year(lh, X_ts, gD_ts, vari_params[[yr]], dens_dep_params, 
+                               flag, cue, sampled_interv_params, num_interv_yrs, num_flag_yrs, 
+                               hist_baseline_info, idx, burnin)
+    # Populate data structures
+    X_ts <- update[[1]]
+    gD_ts <- update[[2]]
+    flag <- update[[3]]
+    num_interv_yrs <- update[[4]] # conditional, num_interv_yrs increases only after idx>burnin
+    num_flag_yrs <- update[[5]]
+  }
+  
+  return(list(X_ts, num_interv_yrs))
+}
+
+#######################################################################
+
+# Make n_sims timeseries
+many_env_ts <- function(n_sims, clim, n){
+  sequences <- list()
+  
+  if (clim=='hist') {
+    sequences <- lapply(seq_len(n_sims), function(x) 
+      TPM_env_ts(n, env_params_hist[[1]], env_params_hist[[2]], 
+                 env_params_hist[[3]], env_params_hist[[4]], env_params_hist[[5]]))
+  }
+  else if (clim=='ssp126') {
+    sequences <- lapply(seq_len(n_sims), function(x) 
+                        TPM_env_ts(n, env_params_126[[1]], env_params_126[[2]], 
+                                   env_params_126[[3]], env_params_126[[4]], env_params_126[[5]]))
+  }
+  else if (clim=='ssp245') {
+    sequences <- lapply(seq_len(n_sims), function(x) 
+      TPM_env_ts(n, env_params_245[[1]], env_params_245[[2]], 
+                 env_params_245[[3]], env_params_245[[4]], env_params_245[[5]]))
+  }
+  else if (clim=='ssp370') {
+    sequences <- lapply(seq_len(n_sims), function(x) 
+      TPM_env_ts(n, env_params_370[[1]], env_params_370[[2]], 
+                 env_params_370[[3]], env_params_370[[4]], env_params_370[[5]]))
+  }
+  else if (clim=='ssp585') {
+    sequences <- lapply(seq_len(n_sims), function(x) 
+      TPM_env_ts(n, env_params_585[[1]], env_params_585[[2]], 
+                 env_params_585[[3]], env_params_585[[4]], env_params_585[[5]]))
+  }
+  
+  return(sequences)
+}
+
+# Name: restoration_stoch_sims
+# Iterate sim for 100 different years timeseries
+# Arguments:
+#   envs: list (length of n_sims), yeartype sequences all generated from same climate scenario
+#   return_type: string, 'GSA', 'LSA', or 'hist_baseline', indicates which set of outcomes to return
+#   everything that restoration_sim() needs
+# Output:
+#   list containing outcome metrics, see code below for specifics depending on return_type
+restoration_stoch_sims <- function(lh, vari_params, dens_dep_params, envs, cue, 
+                                   sampled_interv_params, return_type, burnin, hist_baseline_info){
+  sim_results <- lapply(seq_len(length(envs)), function(i)
+    restoration_sim(lh, vari_params, dens_dep_params, 
+                    years=envs[[i]], cue, sampled_interv_params, burnin, hist_baseline_info))
+  
+  # summarize results
+  Mfal_results <- unlist(mapply(function(x) x[1], sim_results))
+  Asum_results <- unlist(mapply(function(x) x[2], sim_results)) # length is n_sims
+  Jspr_results <- unlist(mapply(function(x) x[3], sim_results))
+  cv_results <- unlist(mapply(function(x) x[4], sim_results))
+  persist_results <- c()
+  numyrs_results <- c()
+  gD_results <- c()
+  persist <- numeric()
+  if (hist_baseline_info != FALSE){
+    persist_results <- unlist(mapply(function(x) x[5], sim_results))
+    persist <- mean(persist_results)
+    numyrs_results <- unlist(mapply(function(x) x[6], sim_results))
+    gD_results <- unlist(mapply(function(x) x[7], sim_results))
+  }
+  else{
+    numyrs_results <- unlist(mapply(function(x) x[5], sim_results))
+    gD_results <- unlist(mapply(function(x) x[6], sim_results))
+  }
+  
+  # remove sim_results from memory after collecting info of interest
+  rm(sim_results)
+  
+  Mfal <- mean(Mfal_results)
+  Asum <- mean(Asum_results)
+  Jspr <- mean(Jspr_results)
+  cv <- mean(cv_results)
+  #lambda <- mean(lambda_results)
+  #prop_persist <- sum(lambda_results>=0.995)/length(lambda_results)
+  numyrs <- mean(numyrs_results)
+  
+  # if doing hist baseline sim, return one thing
+  if (return_type=='hist_baseline'){
+    return(list(Asum_results, Jspr_results, gD_results))
+  }
+  else if (return_type=='GSA'){
+    return(list(Asum, cv, persist, numyrs))
+  }
+  else if (return_type=='LSA'){
+    return(list(Mfal, Asum, Jspr, persist, numyrs))   
+  }
+}
+
+# Calculate simulated historical baselines for restoration
+hist_sim <- function(n_sims, n, lh, vari_params, dens_dep_params, burnin){
+  envs <- many_env_ts(n_sims, clim='hist', n)
+  # run stochastic sims -> Collect final Asum, Jspr, g_D
+  results <- restoration_stoch_sims(lh, vari_params, dens_dep_params, envs, 
+                                    cue='NONE', sampled_interv_params=c(0,0,0,0,0), 
+                                    return_type='hist_baseline', burnin, hist_baseline_info=FALSE)
+  return(results) # final Asum for each sim, final Jspr for each sim, average gD for each sim
+}
+######################################################################
+# test baseline
+# nereo_bad <- bad(nereo_neut, knock)
+# nereo_good <- good(nereo_neut)
+# nereo_vari_params <- list(nereo_good, nereo_neut, nereo_bad) # order: good, neut, bad
+# macro_bad <- bad(macro_neut, knock)
+# macro_good <- good(macro_neut)
+# macro_vari_params <- list(macro_good, macro_neut, macro_bad)
+# 
+# #baseline_info <- hist_sim(n_sims=10, n, lh='onlyage', macro_vari_params, macro_densdep_params, burnin=30)
+# baseline_info <- hist_sim(n_sims=200, n, lh='onlybank', nereo_vari_params, nereo_densdep_params, burnin=30)
+# hist(baseline_info[[1]], main='Simulated Historical Baseline for Final Summer Adult Biomass', xlab='Kg', ylab='Frequency of Sims', breaks=10) 
+# #hist(baseline_info[[2]], main='Simulated Historical Baseline for Final Spring Juvenile Biomass', xlab='Kg', ylab='Frequency of Sims', breaks=10)
+# hist(baseline_info[[3]], main='Simulated Historical Baseline for Pop Growth Rate', xlab='unitless', ylab='Frequency of Sims', breaks=10)
+# #hist(baseline_info[[4]], main='Simulated Historical Baseline for Realized Grazing Rate on Drift', xlab='Season^-1', ylab='Frequency of Sims', breaks=10)
+# 
+# Asum <- mean(baseline_info[[1]])
+# prop_persist <- sum(baseline_info[[3]]>=0.99)/length(baseline_info[[3]])
+# 
+# # test ssp585
+# envs <- many_env_ts(n_sims=10, clim='ssp245', n)
+# # run stoch sims -> Collect final Asum, Jspr, g_D
+# results <- restoration_stoch_sims(lh='onlyage', macro_vari_params, macro_densdep_params, envs, 
+#                                   cue=4, sampled_interv_params=c(0,0,0,0,0), 
+#                                   hist_baseline_outcomes=TRUE, burnin=30, hist_baseline_info)
+# hist(results[[1]], main='Final Summer Adult Biomass under ssp245', xlab='Kg', ylab='Frequency of Sims', breaks=10)
+# hist(results[[3]], main='Pop Growth Rate under ssp245', xlab='unitless', ylab='Frequency of Sims', breaks=10)
+# 
+# # test onlyage and onlybank under hist, ssp245, ssp585 and range of knock values to calibrate intensity of bad year
+# calibrate_bad <- function(knock, n_sims, suffix){
+#   print(knock)
+#   
+#   nereo_bad <- bad(nereo_neut, knock)
+#   nereo_good <- good(nereo_neut)
+#   nereo_vari_params <- list(nereo_good, nereo_neut, nereo_bad) # order: good, neut, bad
+#   macro_bad <- bad(macro_neut, knock)
+#   macro_good <- good(macro_neut)
+#   macro_vari_params <- list(macro_good, macro_neut, macro_bad)
+#   
+#   clims <- c('hist', 'ssp245', 'ssp585')
+#   
+#   for (clim in clims){
+#     envs <- many_env_ts(n_sims, clim, n)
+#     # run stoch sims -> Collect final Asum, Jspr, g_D
+#     results_macro <- restoration_stoch_sims(lh='onlyage', macro_vari_params, macro_densdep_params, envs, 
+#                                       cue=4, sampled_interv_params=c(0,0,0,0,0), 
+#                                       hist_baseline=TRUE, burnin=30)
+#     #print(paste0('finished ', length(results_macro[[1]]), ' macro sims'))
+#     results_nereo <- restoration_stoch_sims(lh='onlybank', nereo_vari_params, nereo_densdep_params, envs, 
+#                                             cue=4, sampled_interv_params=c(0,0,0,0,0), 
+#                                             hist_baseline=TRUE, burnin=30)
+#     #print(paste0('finished ', length(results_nereo[[1]]), ' nereo sims'))
+#     
+#     jpeg(filename = paste0("sims_out/bad_year_calibration/", clim, "_", knock, "_", suffix, ".jpg"), width = 800, height = 600, res = 100)
+#     par(mfrow = c(2, 1))
+#     hist(results_macro[[3]], main=paste0('onlyage under ', clim, ' hit by ', knock, ' in bad years'), xlab='pop growth rate', ylab='Frequency of Sims', breaks=10)
+#     hist(results_nereo[[3]], main=paste0('onlybank under ', clim, ' hit by ', knock, ' in bad years'), xlab='pop growth rate', ylab='Frequency of Sims', breaks=10)
+#     dev.off()
+#     print(paste0('finished ', clim))
+#   }
+# }
+# 
+# knocks <- seq(0.51,0.55,0.01)
+# lapply(seq_len(length(knocks)), function(i)
+#     calibrate_bad(knocks[i], n_sims=100, suffix="03"))
+########################################################################
+# First pass GSA
+
+# Takes clm and makes envs
+# Takes grz and replaces g in graz_params
+# Takes lh and decides which param dictionaries to pass to restoration_stoch_sims
+# returns dataframe (n_samps+1 rows) containing Asum, improve, persist, num_yrs, summarized for n_sims simulations each
+apply_combos <- function(n_sims, n_samps, n_cores, clm, grz, lh, cue_samples, type_samples, eff_samples,
+                         effM_samples, effJ_samples, effD_samples, perc_samples, wait_samples, 
+                         onlybank_hist_baseline, neither_hist_baseline, onlyage_hist_baseline, mixed_hist_baseline){
+  # report progress
+  print(paste0("climate: ", clm, "  grazing: ", grz, "  life history: ", lh))
+  
+  # set climate
+  envs <- many_env_ts(n_sims, clm, n) 
+  
+  # Set grazing pressure
+  if (grz=="low"){graz_params[['g']] <- 0.105} # 90% ungrazed
+  else if (grz=="med"){graz_params[['g']] <- 1.204} # 30% ungrazed
+  else if (grz=="high"){graz_params[['g']] <- 2.996} # 5% ungrazed
+  
+  # set species parameters
+  vari_params <- c()
+  densdep_params <- c()
+  hist_baseline_info <- c()
+  if (lh=='onlybank'|lh=='neither'){
+    vari_params <- nereo_vari_params
+    densdep_params <- nereo_densdep_params
+    if (lh=='onlybank'){ hist_baseline_info <- onlybank_hist_baseline}
+    else if (lh=='neither'){ hist_baseline_info <- neither_hist_baseline}
+  }
+  else if (lh=='onlyage'|lh=='mixed'){
+    vari_params <- macro_vari_params
+    densdep_params <- macro_densdep_params
+    if (lh=='onlyage'){ hist_baseline_info <- onlyage_hist_baseline}
+    else if (lh=='mixed'){ hist_baseline_info <- mixed_hist_baseline}
+  }
+  
+  # run the no intervention case in this lh-grz-clim context
+  nointerv_results <- restoration_stoch_sims(lh, vari_params, densdep_params, envs, cue='NONE', 
+                                             sampled_interv_params=c(0,0,0,0,120), 
+                                             return_type='GSA', burnin=30, hist_baseline_info)
+  nointerv_df <- data.frame(Asum=nointerv_results[1], persist=nointerv_results[3], numyrs=nointerv_results[4], 
+                            clims=as.factor(clm), grzs=as.factor(grz), lhs=as.factor(lh), 
+                            cue=as.factor('NONE'), type=as.factor('NONE'), eff=0,
+                            effM=0, effJ=0, effD=0, perc=0, wait=120)
+  # run intervention sims!
+  print(paste0("finished context setup; using ", n_cores, " cores for ", n_samps, " samples"))
+  sim_results <- mclapply(1:n_samps, function(i){ # over the n_samps parameter samples,
+    # run 100 unique simulations and report the 5 summary variables for each sample.
+    restoration_stoch_sims(lh, vari_params, densdep_params, envs, cue=cue_samples[i], 
+                           sampled_interv_params=c(effM_samples[i],effJ_samples[i],effD_samples[i],perc_samples[i],wait_samples[i]), 
+                           return_type='GSA', burnin=30, hist_baseline_info)
+  }, mc.cores = n_cores-1) # save 1 core for system operations
+  # sim_results is n_samps lists of outcome metrics, summarized across n_sims sims each
+  #print("Finished simulations, organizing results")
+  
+  # parse out outcomes into vectors of length n_samps
+  Asum_results <- mapply(function(x) x[1], sim_results)
+  #cv_results <- mapply(function(x) x[2], sim_results)
+  pesist_results <- mapply(function(x) x[3], sim_results)
+  numyrs_results <- mapply(function(x) x[4], sim_results)
+  
+  # remove sim_results from memory after collecting info of interest
+  rm(sim_results)
+
+  # save parameterizations with outcome metrics, columns are variables, rows are parameterizations
+  interv_df <- data.frame(Asum=unlist(Asum_results), #cv=unlist(cv_results), lambda=unlist(lambda_results),
+                   persist=unlist(persist_results), numyrs=unlist(numyrs_results), 
+                   clims=rep(as.factor(clm), n_samps), grzs=rep(as.factor(grz), n_samps), 
+                   lhs=rep(as.factor(lh), n_samps), cue=as.factor(cue_samples), 
+                   type=as.factor(type_samples), eff=eff_samples, effM=effM_samples, effJ=effJ_samples, 
+                   effD=effD_samples, perc=perc_samples, wait=wait_samples)
+  df <- bind_rows(nointerv_df, interv_df) # add the no intervention run
+  # add column for improvement compared to no_interv runs in this context
+  improve <- (df$Asum - nointerv_results[1]) / nointerv_results[1]
+  add_column(df, improve, .after = "Asum")
+  
+  return(df) 
+}
+
+
+subset_rf_plot <- function(df, dt, n_samps){
+  # pull out context labels
+  clm= "all_clm"
+  grz="all_grz"
+  lh="all_lh"
+  
+  # drop the effort columns from GSA, because they confound with type
+  df <- df[, -which(names(df)=="effM" | names(df)=="effJ" | names(df)=="effD")]
+  
+  if (nrow(df)==n_samps){ # if we're using one of the 12 context-specific dataframes
+    clm <- as.character(df$clims[1])
+    grz <- as.character(df$grzs[1])
+    lh <- as.character(df$lhs[1])
+    # drop the label from the dataframe so it's not used in random forest
+    df <- df[, -which(names(df)=="clims" | names(df)=="grzs" | names(df)=="lhs")]
+  }
+  #print(paste0("dimensions of df: ", dim(df))) # n_samps x 10
+  
+  # remove no intervention cases from dataframe to focus on: if there was intervention, what decisions mattered?
+  # intervention choices in cue 'NONE' confound the regression b/c they're redundant with "cue" and not actually used in the simulations
+  df <- df[-which(df$cue=='NONE'), ]
+  if (sum(is.na(df))>0){
+    stop(paste0("Encountered NA in randomForest input for ", clm, " ", grz, " ", lh))
+  }
+  
+  # pull out the outcomes separately
+  df_Asum <- df[, -which(names(df)=="persist" | names(df)=="numyrs" | names(df)=="improve")]
+  df_improve <- df[, -which(names(df)=="persist" | names(df)=="numyrs" | names(df)=="Asum")]
+  df_persist <- df[, -which(names(df)=="Asum" | names(df)=="numyrs" | names(df)=="improve")]
+  df_numyrs <- df[, -which(names(df)=="persist" | names(df)=="Asum" | names(df)=="improve")]
+  
+  # run random forest analysis for outcome against restoration choices
+  RF_Asum <- randomForest(Asum~.,data=df_Asum,importance=TRUE,type='regression')#, proximity=TRUE)
+  RF_improve <- randomForest(Asum~.,data=df_improve,importance=TRUE,type='regression')
+  RF_persist <- randomForest(persist~.,data=df_persist,importance=TRUE,type='regression')#,proximity=TRUE)
+  RF_numyrs <- randomForest(numyrs~.,data=df_numyrs,importance=TRUE,type='regression')#,proximity=TRUE)
+  # organize data to plot
+  rf_plot <-  data.frame(Parameter = rownames(RF_Asum$importance),
+                    imp_Asum = RF_Asum$importance[, 2], # 1 for decrease in accuracy, 2 for decrease in MSA
+                    imp_improve = RF_improve$importance[, 2],
+                    imp_persist = RF_persist$importance[, 2],
+                    imp_numyrs = RF_numyrs$importance[, 2])
+  print(head(rf_plot))
+  # plot the importance ranking
+  p1 <- ggplot(rf_plot, aes(x=Parameter, y=imp_Asum)) + 
+    geom_col(fill='black') +
+    xlab('Parameter') + ylab('% Change in MSE when Removed') + ggtitle('Importance for Summer Adult Biomass') +
+    theme(
+      panel.grid.minor = element_blank(),
+      plot.margin = unit(c(0,1,0,0), "lines"),
+      axis.text.y = element_text(size=10),
+      axis.text.x = element_text(size=10, angle=45),
+      axis.title = element_text(size=12),
+      plot.title = element_text(size=14, hjust=0.5)
+    )
+  p2 <- ggplot(rf_plot, aes(x=Parameter, y=imp_improve)) + 
+    geom_col(fill='black') +
+    xlab('Parameter') + ylab('% Change in MSE when Removed') + ggtitle('Importance for %Change in Summer Adult Biomass') +
+    theme(
+      panel.grid.minor = element_blank(),
+      plot.margin = unit(c(0,1,0,0), "lines"),
+      axis.text.y = element_text(size=10),
+      axis.text.x = element_text(size=10, angle=45),
+      axis.title = element_text(size=12),
+      plot.title = element_text(size=14, hjust=0.5)
+    )
+  p3 <- ggplot(rf_plot, aes(x=Parameter, y=imp_persist)) + 
+    geom_col(fill='black') + 
+    xlab('Parameter') + ylab('% Change in MSE when Removed') + ggtitle('Importance for Persistence Probability') +
+    theme(
+      panel.grid.minor = element_blank(),
+      plot.margin = unit(c(0,1,0,0), "lines"),
+      axis.text.y = element_text(size=10),
+      axis.text.x = element_text(size=10, angle=45),
+      axis.title = element_text(size=12),
+      plot.title = element_text(size=14, hjust=0.5)
+    )
+  p4 <- ggplot(rf_plot, aes(x=Parameter, y=imp_numyrs)) + 
+    geom_col(fill='black') + 
+    xlab('Parameter') + ylab('% Change in MSE when Removed') + ggtitle('Parameter Importance for Number of Intervention Years') +
+    theme(
+      panel.grid.minor = element_blank(),
+      plot.margin = unit(c(0,1,0,0), "lines"),
+      axis.text.y = element_text(size=10),
+      axis.text.x = element_text(size=10, angle=45),
+      axis.title = element_text(size=12),
+      plot.title = element_text(size=14, hjust=0.5)
+    )
+  # save plots
+  ggsave(paste0("sims_out/Q2_GSA/plots/importance_bars/", dt, "/", lh, "/", grz, "_", clm, "_importance_bars_Asum.png"), plot=p1,
+         height=4, width=8, dpi=300)
+  ggsave(paste0("sims_out/Q2_GSA/plots/importance_bars/", dt, "/", lh, "/", grz, "_", clm, "_importance_bars_improve.png"), plot=p2,
+         height=4, width=8, dpi=300)
+  ggsave(paste0("sims_out/Q2_GSA/plots/importance_bars/", dt, "/", lh, "/", grz, "_", clm, "_importance_bars_persist.png"), plot=p3,
+         height=4, width=8, dpi=300)
+  ggsave(paste0("sims_out/Q2_GSA/plots/importance_bars/", dt, "/", lh, "/", grz, "_", clm, "_importance_bars_numyrs.png"), plot=p4,
+         height=4, width=8, dpi=300)
+  
+  # Plot a single tree
+  Asum_tree_model <- rpart(Asum ~ ., data = df_Asum, method="anova")
+  improve_tree_model <- rpart(improve ~ ., data = df_improve, method="anova")
+  persist_tree_model <- rpart(persist ~ ., data = df_persist, method="anova")
+  numyrs_tree_model <- rpart(numyrs ~ ., data = df_numyrs, method="anova")
+  # Save summary decision tree plots as JPG
+  png(paste0("sims_out/Q2_GSA/plots/decision_tree/", dt, "/", lh, "/", grz, "_", clm, "_decision_tree_Asum.png"), 
+       height=1200, width=2400, res=300)
+  rpart.plot(Asum_tree_model, main="Decision Tree for Summer Adult Biomass", type=4, digits=3)
+  dev.off()
+  
+  png(paste0("sims_out/Q2_GSA/plots/decision_tree/", dt, "/", lh, "/", grz, "_", clm, "_decision_tree_improve.png"), 
+      height=1200, width=2400, res=300)
+  rpart.plot(Asum_tree_model, main="Decision Tree for %Change in Summer Adult Biomass", type=4, digits=3)
+  dev.off()
+  
+  png(paste0("sims_out/Q2_GSA/plots/decision_tree/", dt, "/", lh, "/", grz, "_", clm, "_decision_tree_persist.png"), 
+      height=1200, width=2400, res=300)  # set resolution
+  rpart.plot(persist_tree_model, main="Decision Tree for Persistence Probability", type=4, digits=3)
+  dev.off()
+  
+  png(paste0("sims_out/Q2_GSA/plots/decision_tree/", dt, "/", lh, "/", grz, "_", clm, "_decision_tree_numyrs.png"), 
+      height=1200, width=2400, res=300)  # set resolution
+  rpart.plot(numyrs_tree_model, main="Decision Tree for Number of Intervention Years", type=4, digits=3)
+  dev.off()
+}
+
+# Name: restoration_GSA
+# Conduct GSA for intervention choices below, generates importance and decision tree plots, and saves full dataframe
+#intervention cue, type of material reintroduced, theshold percentile of baseline, wait time
+# Arguments:
+#   n_samps: int, how many samples of intervention choices
+#   n_sims: how many simulations to run for each set of intervention choices
+#   clims: vector of strings, e.g., 'ssp126', which climate contexts to run simulations in?
+#   grzs: vector of strings, e.g., 'low', 'med', 'high', which grazing contexts to run simulations in?
+#   lhs: vector of strings, e.g., 'onlybank', which life history contexts to run simulations in?
+#   dt: string, date label for saving materials with filenames and directory paths
+# Output:
+#   saves simulation output dataframe and decision tree and importance ranking plots
+restoration_GSA <- function(n_samps, n_sims, clims, grzs, lhs, dt){
+  ##########################################
+  # Preparation
+  
+  # choose combo / context
+  # clims <- c('ssp126', 'ssp585')
+  # grzs <- c('low', 'med', 'high')
+  # lhs <- c('onlybank', 'onlyage')
+  combos <- expand.grid(clm=clims, grz=grzs, lh=lhs) # 12 combinations, 12 x 3 dataframe
+  #print(combos$clm[1])
+  #print(head(combos))
+  
+  # sample intervention cue
+  cue_samples <- sample(c('A','J','G'), n_samps, replace=TRUE)
+  # sample intervention type
+  type_samples <- sample(c('M','J','D','MJD','MJ','JD','MD'), n_samps, replace=TRUE)
+  #Sample percent effort
+  eff_samples <- runif(n_samps, 0, 1)
+  #Allocate effort across stages
+  effM_samples <- effM_max * eff_samples #runif(n_samps, 0, 100)
+  effJ_samples <- effJ_max * eff_samples #runif(n_samps, 0, 1000)
+  effD_samples <- effD_max * eff_samples #runif(n_samps, 0, 1000)
+  # sample percentile threshold 
+  perc_samples <- sample(seq(0,0.5,0.005), n_samps, replace=TRUE) #runif(n_samps, 0, 0.5)
+  # sample number of years to wait
+  wait_samples <- sample(0:10, n_samps, replace=TRUE)
+  
+  # zero out the samples for which there is no intervention  
+  # idc_no_interv <- which(cue_samples=='NONE')
+  # effM_samples[idc_no_interv] <- 0
+  # effJ_samples[idc_no_interv] <- 0
+  # effD_samples[idc_no_interv] <- 0
+  # perc_samples[idc_no_interv] <- 0
+  # wait_samples[idc_no_interv] <- 150
+  # type_samples[idc_no_interv] <- 'NONE'
+  
+  # zero out effort when not using that type of intervention
+  idc_no_M <- which(type_samples=='J'| type_samples=='D'| type_samples=='JD')
+  effM_samples[idc_no_M] <- 0
+  idc_no_J <- which(type_samples=='M'| type_samples=='D'| type_samples=='MD')
+  effJ_samples[idc_no_J] <- 0
+  idc_no_D <- which(type_samples=='M'| type_samples=='J'| type_samples=='MJ')
+  effD_samples[idc_no_D] <- 0
+  print("Finished sampling")
+  
+  # calculate simulated historical baselines
+  onlybank_baseline_info <- hist_sim(n_sims, n, lh='onlybank', nereo_vari_params, nereo_densdep_params, burnin=30)
+  neither_baseline_info <- hist_sim(n_sims, n, lh='neither', nereo_vari_params, nereo_densdep_params, burnin=30)
+  onlyage_baseline_info <- hist_sim(n_sims, n, lh='onlyage', macro_vari_params, macro_densdep_params, burnin=30)
+  mixed_baseline_info <- hist_sim(n_sims, n, lh='mixed', macro_vari_params, macro_densdep_params, burnin=30)
+  print("Finished calculating historical baselines")
+  save(onlybank_baseline_info, file="sims_out/Q2_GSA/baselines/onlybank_baseline_info.Rdata")
+  save(neither_baseline_info, file="sims_out/Q2_GSA/baselines/neither_baseline_info.Rdata")
+  save(onlyage_baseline_info, file="sims_out/Q2_GSA/baselines/onlyage_baseline_info.Rdata")
+  save(mixed_baseline_info, file="sims_out/Q2_GSA/baselines/mixed_baseline_info.Rdata")
+  ################################
+  # Simulations
+  
+  # prep for using multiple cores
+  n_cores <- detectCores()
+  print("Starting simulations")
+  # sim_results is 12 dataframes (n_samps parameterizations x 12 variables (3 outcomes and 9 inputs))
+  sim_results <- lapply(1:nrow(combos), function(i) apply_combos(n_sims, n_samps, n_cores, clm=combos$clm[i], grz=combos$grz[i], 
+                                                                 lh=combos$lh[i], cue_samples, type_samples, eff_samples,
+                                                                 effM_samples, effJ_samples, effD_samples, perc_samples, wait_samples, 
+                                                                 onlybank_baseline_info, neither_baseline_info, 
+                                                                 onlyage_baseline_info, mixed_baseline_info))
+  #####################################
+  # Remove variables from memory that aren't needed anymore
+  rm(onlybank_baseline_info,onlyage_baseline_info,neither_baseline_info,mixed_baseline_info)
+  rm(cue_samples,type_samples,effM_samples,effJ_samples,effD_samples,perc_samples,wait_samples)
+  #rm(nereo_vari_params, nereo_densdep_params, macro_vari_params, macro_densdep_params)
+  ####################################
+  # Organizing output
+  
+  # put the 12 dataframes together
+  df_all <- bind_rows(sim_results)
+  # save the big dataframe
+  #print(paste0("dimensions of df_all: ", dim(df_all)))
+  save(df_all, file = paste0("sims_out/Q2_GSA/sampled_sims/AllOutcomes_w_ParamSamples_", dt, ".Rdata"))
+  # collect all dataframes together, 12 context-dependent ones and 1 big dataframe
+  sim_results[[length(sim_results)+1]] <- df_all
+  print(length(sim_results))
+  # save 13 sets of 8 plots (importance bars and decision tree for each outcome)
+  print("Running random forest")
+  lapply(sim_results, function(x) subset_rf_plot(x, dt, n_samps)) 
+}
+
+
+# Note: Dataframes will have lots of NaNs when testing code with small n_samps
+
+##########################################################################
+# Local Sensitivity Analysis
+# inspired by single_param_tune functions from parameterization/run_sims.R
+
+# Name: restoration_sims_LSA
+# Applies a single parameter value, runs and summarizes n_sims stochastic simulations
+# Arguments:
+#   param_name: string, the parameter to sweep
+#   param_val: double, the sampled value of the parameter of interest
+#   lh: string, 'onlybank', 'neither', 'onlyage', 'mixed'
+#   vari_params: list (3) of demographic parameters for good, neutral, and bad years
+#   n_sims: int, number of simulations to run per parameter sample
+#   clim: string, 'ssp126', 'ssp245', 'ssp370', 'ssp585'
+#   cue: string, 'A' - summer adult biomass, 'G' - realized grazing, 'J' - spring juvenile biomass, 'NONE' - no intervention
+#   interv_params: vector (5), containing M_eff, J_eff, D_eff, perc, wait
+#   hist_baseline_info: list (4), baseline Asum, Jspr, lambda, gD
+# Output:
+#   list of 5: Mfal, Asum, Jspr, persist, numyrs
+restoration_sims_LSA <- function(param_name, param_val, lh, vari_params, dens_dep_params,
+                                 n_sims, clim, cue, interv_params, hist_baseline_info){
+  # pull apart vari_params to adjust banking, recruitment, fecundity
+  neut <- vari_params[[2]]
+  spr <- neut[[1]]
+  sum <- neut[[2]]
+  fal <- neut[[3]]
+  win <- neut[[4]]
+  # assign the parameter value
+  if (param_name=='d_J'){
+    spr[[5]] <- param_val
+    sum[[5]] <- param_val
+    fal[[5]] <- param_val
+    win[[5]] <- param_val
+  }
+  if (param_name=='d_M'){
+    if (lh=='onlybank' | lh=='onlyage'){
+      spr[[1]] <- param_val
+      sum[[1]] <- param_val
+      fal[[1]] <- param_val
+      win[[1]] <- param_val
+    }
+    if (lh=='mixed' | lh=='neither'){
+      spr[[2]] <- param_val
+      sum[[2]] <- param_val
+      fal[[2]] <- param_val
+      win[[2]] <- param_val
+    }
+  }
+  if (param_name=='g'){
+    graz_params[['g']] <- param_val
+  }
+  # put vari_params back together
+  neut <- list(spr,sum,fal,win)
+  vari_params[[2]] <- neut
+  vari_params[[3]] <- bad(neut, knock)
+  vari_params[[1]] <- good(neut)
+  # make n_sims years sequences
+  if (param_name=='phi'){
+    if (clim=='hist'){
+      env_params_hist[[1]] <- param_val
+    }
+    else if (clim=='ssp126'){
+      env_params_126[[1]] <- param_val
+    }
+    else if (clim=='ssp245'){
+      env_params_245[[1]] <- param_val
+    }
+    else if (clim=='ssp370'){
+      env_params_370[[1]] <- param_val
+    }
+    else if (clim=='ssp585'){
+      env_params_585[[1]] <- param_val
+    }
+  }
+  envs <- many_env_ts(n_sims, clim, n) 
+  
+  # run n_sim simulations for this parameterization
+  # is this function call how I want it? yes!
+  sim_results <- restoration_stoch_sims(lh, vari_params, dens_dep_params, envs, cue, 
+                         interv_params, return_type='LSA', burnin=30, hist_baseline_info)
+  # Note: each parameter sample will get a different set of n_sims year-type sequences - 
+  # this is different from the GSA, where all samples within the same combo/context got the same n_sims sequences
+  
+  return(sim_results) # list of 5: Mfal, Asum, Jspr, persist, numyrs
+}
+
+# trial run this and see dataframe, biomasses look good
+# Sweeps over parameter of interest and returns dataframe with parameter value and outcome metrics
+restoration_LSA <- function(param_name, param_min, param_max, lh,
+                            n_samps, n_sims, clim, cue, interv_params, dt){
+  # set species parameters
+  vari_params <- c()
+  dens_dep_params <- c()
+  if (lh=='onlybank'|lh=='neither'){
+    vari_params <- nereo_vari_params
+    dens_dep_params <- nereo_densdep_params
+  }
+  else if (lh=='onlyage'|lh=='mixed'){
+    vari_params <- macro_vari_params
+    dens_dep_params <- macro_densdep_params
+  }
+  
+  # load historical baselines
+  hist_baseline_info <- c()
+  if (lh=='onlybank'){
+    load("sims_out/Q2_GSA/baselines/onlybank_baseline_info.Rdata")
+    hist_baseline_info <- onlybank_baseline_info
+  }
+  if (lh=='neither'){
+    load("sims_out/Q2_GSA/baselines/neither_baseline_info.Rdata")
+    hist_baseline_info <- neither_baseline_info
+  }
+  if (lh=='onlyage'){
+    load("sims_out/Q2_GSA/baselines/onlyage_baseline_info.Rdata")
+    hist_baseline_info <- onlyage_baseline_info
+  }
+  if (lh=='mixed'){
+    load("sims_out/Q2_GSA/baselines/mixed_baseline_info.Rdata")
+    hist_baseline_info <- mixed_baseline_info
+  }
+  
+  #print(length(hist_baseline_info))
+  #print(hist_baseline_info)
+  
+  # sample the parameter of interest
+  param_samples <- runif(n_samps, param_min, param_max)
+  
+  # prep for using multiple cores
+  n_cores <- detectCores()
+  print("Starting simulations")
+  
+  # simulate over n_samps param_samples  
+  sim_results <- mclapply(1:n_samps, function(i){ # over the n_samps parameter samples,
+    # run n_sims unique simulations and report the 5 summary variables for each sample.
+    restoration_sims_LSA(param_name, param_val=param_samples[i], lh, vari_params, dens_dep_params,
+                         n_sims, clim, cue, interv_params, hist_baseline_info)
+    }, mc.cores = n_cores-1)
+  # sim_results is n_samps lists of 5 summary variables (summarized over n_sims stochastic runs)
+      
+  # parse out outcomes into vectors of length n_samps
+  Mfal_results <- mapply(function(x) x[1], sim_results)
+  Asum_results <- mapply(function(x) x[2], sim_results)
+  Jspr_results <- mapply(function(x) x[3], sim_results)
+  persist_results <- mapply(function(x) x[4], sim_results)
+  numyrs_results <- mapply(function(x) x[5], sim_results)
+  
+  # remove sim_results from memory after collecting info of interest
+  rm(sim_results)
+  
+  # save parameterizations with outcome metrics, columns are variables, rows are parameterizations
+  df <- data.frame(param_val=param_samples, lhs=rep(lh, n_samps), clims=rep(clim, n_samps),
+                   Mfal=unlist(Mfal_results), Jspr=unlist(Jspr_results), Asum=unlist(Asum_results), #cv=unlist(cv_results), lambda=unlist(lambda_results),
+                   persist=unlist(persist_results), numyrs=unlist(numyrs_results)) 
+  save(df, file = paste0('sims_out/Q2_GSA/LSA/', lh, '_', clim, '_', cue, '_', param_name, '_', dt, '.Rdata'))
+  print('saved simulation outcome dataframe')
+  
+  return(df)  
+}
+
+
+
+
+#########################################################################
+# Name: ssp_years
+# generates sequence of year types given a constant climate scenario
+# Arguments:
+#   ssp: string, climate scenario, either 'hist', 'ssp245', 'ssp370', 'ssp585' 
+#     (start with constant prob scenarios, 
+#      if results show that optimal approach changes between scenarios, then try ramp-up)
+# Output: sequence of year-types
+ssp_years <- function(ssp,n){
+  # Set environmental parameters
+  env_params <- c()
+  if (ssp=='hist'){
+    env_params <- c(
+      phi = 0.62,
+      p_bad_init = 0.292, 
+      p_good_init = 0.25,
+      p_bad_fin = 0.292,
+      p_good_fin = 0.25)
+  }
+  else if (ssp=='ssp245'){
+    env_params <- c(
+      phi = 0.62,
+      p_bad_init = 0.407, 
+      p_good_init = 0.372,
+      p_bad_fin = 0.407,
+      p_good_fin = 0.372)
+  }
+  else if (ssp=='ssp370'){
+    env_params <- c(
+      phi = 0.62,
+      p_bad_init = 0.488, 
+      p_good_init = 0.349,
+      p_bad_fin = 0.488,
+      p_good_fin = 0.349)
+  }
+  else if (ssp=='ssp585'){
+    env_params <- c(
+      phi = 0.62,
+      p_bad_init = 0.581, 
+      p_good_init = 0.256,
+      p_bad_fin = 0.581,
+      p_good_fin = 0.256)
+  }
+  
+  # make sequence of year-types
+  years <- TPM_env_ts(n, env_params[[1]], env_params[[2]], 
+                      env_params[[3]], env_params[[4]], env_params[[5]])
+  return(years)
+}

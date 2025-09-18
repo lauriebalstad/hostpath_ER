@@ -1,0 +1,26 @@
+{
+    "id": "06EFCC65",
+    "path": "~/GitHub/hostpath_ER/sens/00_sensitivity_matrix_createB.R",
+    "project_path": "sens/00_sensitivity_matrix_createB.R",
+    "type": "r_source",
+    "hash": "924119649",
+    "contents": "",
+    "dirty": false,
+    "created": 1757949398903.0,
+    "source_on_save": false,
+    "relative_order": 2,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "27,45",
+        "scrollLine": "8"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1758218847,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1758218847215,
+    "read_only": false,
+    "read_only_alternatives": []
+}

@@ -1,0 +1,231 @@
+library(dplyr)
+library(randomForest)
+library(ggplot2)
+library(rpart)
+library(rpart.plot)
+
+# loading the data -- note weird directory because of HPC use
+sum_a <- readRDS("dat/gsa2_0917.Rdata")
+sum_b <- readRDS("dat/gsa_0917.Rdata")
+random_parms <- readRDS("dat/mat_var_0909.Rdata") # figure out what these values were converging around....? new values have super little er
+bd_parms <- readRDS("dat/mat_bd_0909.Rdata") # figure out what these values were converging around....? new values have super little er
+
+# convert to df
+a_dtf <- as.data.frame(matrix(unlist(sum_a), ncol = 29, byrow = T))
+colnames(a_dtf) <- c("extinct", 
+                       "pop_drop20", "pop_drop50", "pop_drop80",
+                       "r_allele_peak15", "r_allele_peak45", "r_allele_peak75",
+                       "final_r_allele", "final_pop_size", "final_inf_prev",
+                       "max_r_allele", "time_max_r_allele",
+                       "max_inf_prev", "time_last_zero_inf",
+                       "min_pop", "time_min_pop",
+                       "first_20", "first_50", "first_80",
+                       "last_20", "last_50", "last_80",
+                       "tot_20", "tot_50", "tot_80",
+                       "at_K95", "firstK95",
+                       "r_ts_d0", "parm_number")
+b_dtf <- as.data.frame(matrix(unlist(sum_b), ncol = 29, byrow = T))
+colnames(b_dtf) <- c("extinct", 
+                       "pop_drop20", "pop_drop50", "pop_drop80",
+                       "r_allele_peak15", "r_allele_peak45", "r_allele_peak75",
+                       "final_r_allele", "final_pop_size", "final_inf_prev",
+                       "max_r_allele", "time_max_r_allele",
+                       "max_inf_prev", "time_last_zero_inf",
+                       "min_pop", "time_min_pop",
+                       "first_20", "first_50", "first_80",
+                       "last_20", "last_50", "last_80",
+                       "tot_20", "tot_50", "tot_80",
+                       "at_K95", "firstK95",
+                       "r_ts_d0", "parm_number")
+
+# put together
+sim_dat <- rbind(a_dtf, b_dtf) # just one???
+
+# summarize by case
+rep_num <- 400 # 500  
+sens_dat_ext <- sim_dat %>% group_by(parm_number) %>% 
+  summarise(`P(extinct)` = sum(extinct)/rep_num, 
+            avg_final_r = mean(final_r_allele),
+            avg_max_r = mean(max_r_allele),
+            avg_final_inf = mean(final_inf_prev), 
+            abg_max_inf = mean(max_inf_prev), 
+            time_K = mean(firstK95, na.rm = T))
+sens_dat_erE <- sim_dat %>% 
+  filter(extinct == 0, abs(last_20-first_20-tot_20) <3, tot_20 > 3, at_K95 == 1, r_allele_peak75 == 1) %>%
+  group_by(parm_number) %>% 
+  summarise(`P(ER_20_75)` = n()/rep_num)
+tmp <- merge(sens_dat_ext, sens_dat_erE, by = "parm_number", all = T)
+sens_dat_erM <- sim_dat %>% 
+  filter(extinct == 0, abs(last_50-first_50-tot_50) <3, tot_50 > 3, at_K95 == 1, r_allele_peak45 == 1) %>%
+  group_by(parm_number) %>% 
+  summarise(`P(ER_50_45)` = n()/rep_num, ER_K95 = mean(firstK95))
+tmp <- merge(tmp, sens_dat_erM, by = "parm_number", all = T)
+sens_dat_erP <- sim_dat %>% 
+  filter(extinct == 0, abs(last_80-first_80-tot_80) <3, tot_80 > 3, at_K95 == 1, r_allele_peak15 == 1) %>%
+  group_by(parm_number) %>% 
+  summarise(`P(ER_80_15)` = n()/rep_num)
+tmp <- merge(tmp, sens_dat_erP, by = "parm_number", all = T)
+
+sens_dat_drE <- sim_dat %>% 
+  filter(extinct == 0, abs(last_20-first_20-tot_20) <3, tot_20 > 3, at_K95 == 1, r_allele_peak75 == 0, final_inf_prev == 0) %>%
+  group_by(parm_number) %>% 
+  summarise(`P(DR_20_75)` = n()/rep_num)
+tmp <- merge(tmp, sens_dat_drE, by = "parm_number", all = T)
+sens_dat_drM <- sim_dat %>% 
+  filter(extinct == 0, abs(last_50-first_50-tot_50) <3, tot_50 > 3, at_K95 == 1, r_allele_peak45 == 0, final_inf_prev == 0) %>%
+  group_by(parm_number) %>% 
+  summarise(`P(DR_50_45)` = n()/rep_num)
+tmp <- merge(tmp, sens_dat_drM, by = "parm_number", all = T)
+sens_dat_drP <- sim_dat %>% 
+  filter(extinct == 0, abs(last_80-first_80-tot_80) <3, tot_80 > 3, at_K95 == 1, r_allele_peak15 == 0, final_inf_prev == 0) %>%
+  group_by(parm_number) %>% 
+  summarise(`P(DR_80_15)` = n()/rep_num)
+tmp <- merge(tmp, sens_dat_drP, by = "parm_number", all = T)
+
+# note NA's are really 0s
+GSA_summary_dat <- tmp
+
+# remove NAs --> those are 0s
+GSA_summary_dat[is.na(GSA_summary_dat)] <- 0
+
+# get data together -- watch which variable merge is occuring w -- 35 for pre-0122, 36 for post
+RF_dat <- merge(as.data.frame(random_parms), GSA_summary_dat, by.x = "V36", by.y = "parm_number")
+RF_dat <- merge(RF_dat, bd_parms, by.x = "V36", by.y = "number")
+
+# rename so it's easy to navigate and plot
+colnames(RF_dat) <- c("parameter number", "compartments", "event order", 
+                      "\u03B2_F,RR", "\u03B2_F,WR", "\u03B2_F,WW", "\u03C3_\u03B2,F", 
+                      "\u03B2_D,RR", "\u03B2_D,WR", "\u03B2_D,WW", "\u03C3_\u03B2,D", 
+                      "\u03BC_S,RR", "\u03BC_S,WR", "\u03BC_S,WW", "\u03BC_I,RR", "\u03BC_I,WR", "\u03BC_I,WW", "\u03C3_\u03BC,S", "\u03C3_\u03BC,I", 
+                      "\u03B3_RR", "\u03B3_WR", "\u03B3_WW", "\u03C3_\u03B3", 
+                      "\u03BB_RR", "\u03BB_WR", "\u03BB_WW", "\u03BB_sd", "\u03BD",
+                      "K", "\u03C3_K",
+                      "t_q", "d", 
+                      "Q_0", "I_0", "t_f", "transmission case", "adaptive pathway", colnames(RF_dat[38:50]), "mutant benefit", "mutant dominance", "disease dynamics, varience")
+# note the the variables that are categorical
+RF_dat$"compartments" <- as.factor(RF_dat$"compartments")
+RF_dat$"event order" <- as.factor(RF_dat$"event order")
+RF_dat$"transmission case" <- as.factor(RF_dat$"transmission case")
+RF_dat$"adaptive pathway" <- as.factor(RF_dat$"adaptive pathway")
+
+# trying with ratios instead of raw values, e.g., ratio of RR:WW
+RF_ratio <- data.frame(compartments = RF_dat$"compartments", 
+                       "event order" = RF_dat$"event order", 
+                       # "allele benefit, enviro. trans. blocking" = RF_dat$"\u03B2_F,RR"/RF_dat$"\u03B2_F,WW", 
+                       "wild-type enviro. tranmission" = RF_dat$"\u03B2_F,WW", 
+                       # "enviro. tranmission variation" = RF_dat$"\u03C3_\u03B2,F",
+                       "transmission type" = RF_dat$"transmission case", # want to be able to seperate cases with and without enviro
+                       # "allele benefit, dens. trans. blocking" = RF_dat$"\u03B2_D,RR"/RF_dat$"\u03B2_D,WW",
+                       "wild-type dens. tranmission" = RF_dat$"\u03B2_D,WW",
+                       # "dens tranmission variation" = RF_dat$"\u03C3_\u03B2,D",
+                       "wild-type natural mortality" = RF_dat$"\u03BC_S,WW",
+                       # "allele benefit, mortality-blocking" = RF_dat$"\u03BC_I,RR"/RF_dat$"\u03BC_I,WW",
+                       "wild-type disease mortality" = RF_dat$"\u03BC_I,WW",
+                       # "natural mortality variation" = RF_dat$"\u03C3_\u03BC,S", 
+                       # "disease mortality variation" = RF_dat$"\u03C3_\u03BC,I", 
+                       # "allele benefit, clearance aug." = RF_dat$"\u03B3_RR"/RF_dat$"\u03B3_WW", 
+                       "wild-type recovery" = RF_dat$"\u03B3_WW", 
+                       # "recovery variation" = RF_dat$"\u03C3_\u03B3", 
+                       # "allele cost, fecundity" = RF_dat$"\u03BB_RR"/RF_dat$"\u03BB_WW",
+                       "wild-type fecundity" = RF_dat$"\u03BB_WW", 
+                       "adaptive pathway" = RF_dat$`adaptive pathway`, 
+                       "mutant allele benefit" = RF_dat$`mutant benefit`,
+                       "mutant allele dominance" = RF_dat$`mutant dominance`, 
+                       "varience, disease dynamics" = RF_dat$`disease dynamics, varience`
+) # then everything after is the same
+
+RF_ratio <- cbind(RF_ratio, RF_dat[, c(28:30, 32, 34)]) # , RF_dat[,c(43:44)]) # RF_dat add is for and r/inf info
+
+colnames(RF_ratio) <- c("compartments", "event order",
+                        "wild type env. tranmission", 
+                        "transmission type", 
+                        "wild type dens. tranmission",
+                        "wild type natural mortality", "wild type disease mortality", 
+                        "wild type recovery", 
+                        # "mutant allele\ncost: fecundity", 
+                        "wild type fecundity", 
+                        "adaptive pathway", "mutant allele benefit", "mutant allele dominance", "varience, disease dynamics",
+                        "mutation rate", 
+                        "carrying capacity", "carrying capactity variation",
+                        "disease gens.\nper host gen.", 
+                        "initial disease prevelence")
+# saveRDS(colnames(RF_ratio), file = "dat/RF_names.Rdata")
+
+# with ratios
+forest_extinct_ratio <- randomForest(x=RF_ratio, y=RF_dat$`P(extinct)`, ntree=1000, importance = T, localImp = T)
+plot(forest_extinct_ratio) # this is checking the convergence?
+varImpPlot(forest_extinct_ratio)
+forest_extinct_ratio # checing var explained etc
+# saveRDS(forest_extinct_ratio, file = "dat/RF_ext_ratio.Rdata")
+# ER
+forest_ER_ratio <- randomForest(x=RF_ratio, y=RF_dat$`P(ER_50_45)`, ntree=1000, importance = T, localImp = T)
+plot(forest_ER_ratio) # this is checking the convergence?
+varImpPlot(forest_ER_ratio)
+forest_ER_ratio # checking var explained etc
+# saveRDS(forest_ER_ratio, file = "dat/RF_ER_ratio.Rdata")
+# DR -- skip in final fig
+forest_DR_ratio <- randomForest(x=RF_ratio, y=RF_dat$`P(DR_50_45)`, ntree=1000, importance = T, localImp = T)
+plot(forest_DR_ratio) # this is checking the convergence?
+varImpPlot(forest_DR_ratio)
+forest_DR_ratio # checking var explained etc
+# saveRDS(forest_DR_ratio, file = "dat/RF_IL_ratio.Rdata")
+# first time to K for ER+
+forest_K95_ratio <- randomForest(x=RF_ratio, y=RF_dat$`ER_K95`, ntree=1000, importance = T, localImp = T)
+plot(forest_K95_ratio) # this is checking the convergence?
+varImpPlot(forest_K95_ratio)
+forest_K95_ratio # checking var explained etc -- not super explainatory or surprising....?
+# saveRDS(forest_K95_ratio, file = "dat/RF_K95_ratio.Rdata")
+
+# plotting non-interacting effect:
+partialPlot(forest_ER_ratio, RF_ratio, "event order")
+
+# trying as a classifier
+RF_class <- merge(as.data.frame(random_parms), sim_dat, by.x = "V36", by.y = "parm_number")
+RF_class <- merge(RF_class, bd_parms, by.x = "V36", by.y = "number")
+colnames(RF_class) <- c("parameter number", "compartments", "event order", 
+                      "\u03B2_F,RR", "\u03B2_F,WR", "\u03B2_F,WW", "\u03C3_\u03B2,F", 
+                      "\u03B2_D,RR", "\u03B2_D,WR", "\u03B2_D,WW", "\u03C3_\u03B2,D", 
+                      "\u03BC_S,RR", "\u03BC_S,WR", "\u03BC_S,WW", "\u03BC_I,RR", "\u03BC_I,WR", "\u03BC_I,WW", "\u03C3_\u03BC,S", "\u03C3_\u03BC,I", 
+                      "\u03B3_RR", "\u03B3_WR", "\u03B3_WW", "\u03C3_\u03B3", 
+                      "\u03BB_RR", "\u03BB_WR", "\u03BB_WW", "\u03BB_sd", "\u03BD",
+                      "K", "\u03C3_K",
+                      "t_q", "d", 
+                      "Q_0", "I_0", "t_f", "transmission case", "adaptive pathway", colnames(RF_class[38:68]))
+# note the the variables that are categorical
+RF_class$"compartments" <- as.factor(RF_class$"compartments")
+RF_class$"event order" <- as.factor(RF_class$"event order")
+RF_class$"transmission case" <- as.factor(RF_class$"transmission case")
+RF_class$"adaptive pathway" <- as.factor(RF_class$"adaptive pathway")
+
+RF_class$ER <- ifelse(RF_class$extinct == 0 & 
+                        abs(RF_class$last_80-RF_class$first_80-RF_class$tot_80) <3 & 
+                        RF_class$tot_80 > 3 & 
+                        RF_class$at_K95 == 1 & 
+                        RF_class$r_allele_peak45 == 1, 
+                      1, 0) # <1% of sims
+
+RF_class$IL <- ifelse(RF_class$extinct == 0 & 
+                        abs(RF_class$last_80-RF_class$first_80-RF_class$tot_80) <3 & 
+                        RF_class$tot_80 > 3 & 
+                        RF_class$at_K95 == 1 & 
+                        RF_class$r_allele_peak45 == 0 & 
+                        RF_class$final_inf_prev == 0, 
+                      1, 0) # ~10% of sims
+
+# have extinction column already
+RF_class$EX <- RF_class$extinct # ~45%
+
+RF_class$NR <- ifelse(RF_class$extinct == 0 & RF_class$tot_80 < 3, 1, 0) # ~25%
+
+RF_class$clss <- ifelse(RF_class$extinct == 1, "extinct", 
+                        ifelse(RF_class$ER == 1, "ER", 
+                               ifelse(RF_class$IL == 1, "IL",
+                                      ifelse(RF_class$NR == 1, "NR", "UNK")))) # ~20% unknowns
+RF_class$clss <- as.factor(RF_class$clss)
+
+pred_vars <- c(2, 3, 6, 10, 14, 17, 22, 26, 28:30, 32, 34, 36, 37, 66, 67, 68)
+forest_class <- randomForest(y=RF_class$clss, x=RF_class[, pred_vars], ntree=50, importance = T, localImp = T, type = "classification")
+RF_df <- cbind(RF_class[, pred_vars], RF_class$clss)
+colnames(RF_df) <- c(colnames(RF_df)[1:18], "clss")
+forest_class_tree <- rpart(clss ~ ., data = RF_df, method = "class")
+rpart.plot(forest_class_tree, type=4, digits=3)

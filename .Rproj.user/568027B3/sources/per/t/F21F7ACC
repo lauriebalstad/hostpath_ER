@@ -1,0 +1,26 @@
+{
+    "id": "F21F7ACC",
+    "path": "~/GitHub/hostpath_ER/figs/figure_plot/02_plt_fig.R",
+    "project_path": "figs/figure_plot/02_plt_fig.R",
+    "type": "r_source",
+    "hash": "812899733",
+    "contents": "",
+    "dirty": true,
+    "created": 1758042182502.0,
+    "source_on_save": false,
+    "relative_order": 3,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "30,32",
+        "scrollLine": "23"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1758221825,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1758226516948,
+    "read_only": false,
+    "read_only_alternatives": []
+}
