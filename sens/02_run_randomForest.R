@@ -9,6 +9,7 @@ library(ranger)
 # loading the data -- note weird directory because of HPC use
 sum_a <- readRDS("dat/gsa_result_0928.Rdata")
 sum_b <- readRDS("dat/gsa_result_0930.Rdata")
+sum_c <- readRDS("dat/gsa_result_1003.Rdata")
 random_parms <- readRDS("dat/mat_var_0922.Rdata") # figure out what these values were converging around....? new values have super little er
 bd_parms <- readRDS("dat/mat_bd_0922.Rdata") # figure out what these values were converging around....? new values have super little er
 
@@ -40,8 +41,22 @@ colnames(b_dtf) <- c("extinct",
                        "at_K95", "firstK95",
                        "r_ts_d0", "parm_number")
 
+c_dtf <- as.data.frame(matrix(unlist(sum_c), ncol = 29, byrow = T))
+colnames(c_dtf) <- c("extinct",
+                     "pop_drop20", "pop_drop50", "pop_drop80",
+                     "r_allele_peak15", "r_allele_peak45", "r_allele_peak75",
+                     "final_r_allele", "final_pop_size", "final_inf_prev",
+                     "max_r_allele", "time_max_r_allele",
+                     "max_inf_prev", "time_last_zero_inf",
+                     "min_pop", "time_min_pop",
+                     "first_20", "first_50", "first_80",
+                     "last_20", "last_50", "last_80",
+                     "tot_20", "tot_50", "tot_80",
+                     "at_K95", "firstK95",
+                     "r_ts_d0", "parm_number")
+
 # put together
-sim_dat <- rbind(a_dtf, b_dtf) # just one???
+sim_dat <- rbind(a_dtf, b_dtf, c_dtf) # just one???
 # sim_dat <- a_dtf
                  
 
@@ -73,14 +88,14 @@ RF_class$"transmission_cat" <- as.factor(RF_class$"transmission_cat")
 RF_class$"adaptive_cat" <- as.factor(RF_class$"adaptive_cat")
 
 RF_class$ER <- ifelse(RF_class$extinct == 0 & 
-                        abs(RF_class$last_50-RF_class$first_50-RF_class$tot_50) <3 & 
+                        abs(RF_class$last_50-RF_class$first_50-RF_class$tot_50) <6 & 
                         RF_class$tot_50 > 3 & 
                         RF_class$at_K95 == 1 & 
                         RF_class$r_allele_peak45 == 1, 
                       1, 0) # ~35% of sims
 
 RF_class$IL <- ifelse(RF_class$extinct == 0 & 
-                        abs(RF_class$last_50-RF_class$first_50-RF_class$tot_50) <3 & 
+                        abs(RF_class$last_50-RF_class$first_50-RF_class$tot_50) <6 & 
                         RF_class$tot_50 > 3 & 
                         RF_class$at_K95 == 1 & 
                         RF_class$r_allele_peak45 == 0 & 
@@ -92,7 +107,7 @@ RF_class$EX <- RF_class$extinct # ~30%
 
 RF_class$NR <- ifelse(RF_class$extinct == 0 & RF_class$tot_50 < 3, 1, 0) # ~25%
 
-RF_class$clss <- ifelse(RF_class$extinct == 1, "extinct", 
+RF_class$clss <- ifelse(RF_class$extinct == 1, "EX", 
                         ifelse(RF_class$ER == 1, "ER", 
                                ifelse(RF_class$IL == 1, "IL",
                                       ifelse(RF_class$NR == 1, "NR", "UNK")))) # ~20% unknowns
@@ -110,7 +125,7 @@ frst_clss <- ranger(clss ~ ., data = RF_df,
                     write.forest = F) # save memory
 
 # randomForest -- slower, but more features??
-rf_clss <- randomForest(clss ~ ., data = RF_df, ntree=50, importance = T, localImp = T, type = "classification")
+# rf_clss <- randomForest(clss ~ ., data = RF_df, ntree=50, importance = T, localImp = T, type = "classification")
 
 # rpart tree?
 rp_clss <- rpart(clss ~ ., data = RF_df, method = "class")
