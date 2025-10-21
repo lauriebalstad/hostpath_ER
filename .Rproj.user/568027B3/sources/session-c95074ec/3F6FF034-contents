@@ -1,0 +1,139 @@
+library(dplyr)
+library(randomForest)
+library(ggplot2)
+library(rpart)
+library(rpart.plot)
+library(optRF)
+library(ranger)
+
+# loading the data -- note weird directory because of HPC use
+sum_a <- readRDS("dat/gsa_result_0928.Rdata")
+sum_b <- readRDS("dat/gsa_result_0930.Rdata")
+sum_c <- readRDS("dat/gsa_result_1003.Rdata")
+random_parms <- readRDS("dat/mat_var_0922.Rdata") # figure out what these values were converging around....? new values have super little er
+bd_parms <- readRDS("dat/mat_bd_0922.Rdata") # figure out what these values were converging around....? new values have super little er
+
+# convert to df
+a_dtf <- as.data.frame(matrix(unlist(sum_a), ncol = 29, byrow = T))
+colnames(a_dtf) <- c("extinct", 
+                       "pop_drop20", "pop_drop50", "pop_drop80",
+                       "r_allele_peak15", "r_allele_peak45", "r_allele_peak75",
+                       "final_r_allele", "final_pop_size", "final_inf_prev",
+                       "max_r_allele", "time_max_r_allele",
+                       "max_inf_prev", "time_last_zero_inf",
+                       "min_pop", "time_min_pop",
+                       "first_20", "first_50", "first_80",
+                       "last_20", "last_50", "last_80",
+                       "tot_20", "tot_50", "tot_80",
+                       "at_K95", "firstK95",
+                       "r_ts_d0", "parm_number")
+b_dtf <- as.data.frame(matrix(unlist(sum_b), ncol = 29, byrow = T))
+colnames(b_dtf) <- c("extinct",
+                       "pop_drop20", "pop_drop50", "pop_drop80",
+                       "r_allele_peak15", "r_allele_peak45", "r_allele_peak75",
+                       "final_r_allele", "final_pop_size", "final_inf_prev",
+                       "max_r_allele", "time_max_r_allele",
+                       "max_inf_prev", "time_last_zero_inf",
+                       "min_pop", "time_min_pop",
+                       "first_20", "first_50", "first_80",
+                       "last_20", "last_50", "last_80",
+                       "tot_20", "tot_50", "tot_80",
+                       "at_K95", "firstK95",
+                       "r_ts_d0", "parm_number")
+
+c_dtf <- as.data.frame(matrix(unlist(sum_c), ncol = 29, byrow = T))
+colnames(c_dtf) <- c("extinct",
+                     "pop_drop20", "pop_drop50", "pop_drop80",
+                     "r_allele_peak15", "r_allele_peak45", "r_allele_peak75",
+                     "final_r_allele", "final_pop_size", "final_inf_prev",
+                     "max_r_allele", "time_max_r_allele",
+                     "max_inf_prev", "time_last_zero_inf",
+                     "min_pop", "time_min_pop",
+                     "first_20", "first_50", "first_80",
+                     "last_20", "last_50", "last_80",
+                     "tot_20", "tot_50", "tot_80",
+                     "at_K95", "firstK95",
+                     "r_ts_d0", "parm_number")
+
+# put together
+sim_dat <- rbind(a_dtf, b_dtf, c_dtf) # just one???
+
+# trying as a classifier
+# set up data: merge parameters and simulated data
+RF_class <- merge(as.data.frame(random_parms), sim_dat, by.x = "V36", by.y = "parm_number")
+RF_class <- merge(RF_class, bd_parms, by.x = "V36", by.y = "number")
+# rename things (note need to keep these nice for RF)
+colnames(RF_class) <- c("param_num", "compartments", "order", 
+                        "B_F_RR", "B_F_WR", "B_F_WW", "SD_B_F", 
+                        "B_D_RR", "B_D_WR", "B_D_WW", "SD_B_D", 
+                        "M_S_RR", "M_S_WR", "M_S_WW", "M_I_RR", "M_I_WR", "M_I_WW", "SD_M_S", "SD_M_I", 
+                        "G_RR", "G_WR", "G_WW", "SD_G", 
+                        "L_RR", "L_WR", "L_WW", "SD_L", "mutation",
+                        "K", "SD_K",
+                        "init_time", "disease_gen", 
+                        "init_allele", "init_inif", "final_time", "transmission_cat", "adaptive_cat", colnames(RF_class[38:69]))
+# note the the variables that are categorical
+RF_class$"compartments" <- as.factor(RF_class$"compartments")
+RF_class$"order" <- as.factor(RF_class$"order")
+RF_class$"transmission_cat" <- as.factor(RF_class$"transmission_cat")
+RF_class$"adaptive_cat" <- as.factor(RF_class$"adaptive_cat")
+
+# figure out classifications
+RF_class$ER <- ifelse(RF_class$extinct == 0 & 
+                        abs(RF_class$last_50-RF_class$first_50-RF_class$tot_50) < 0.5*RF_class$tot_50 & 
+                        RF_class$tot_50 > 3 & 
+                        RF_class$at_K95 == 1 & 
+                        RF_class$r_allele_peak45 == 1, 
+                      1, 0) 
+
+RF_class$IL <- ifelse(RF_class$extinct == 0 & 
+                        abs(RF_class$last_50-RF_class$first_50-RF_class$tot_50) < 0.5*RF_class$tot_50 & 
+                        RF_class$tot_50 > 3 & 
+                        RF_class$at_K95 == 1 & 
+                        RF_class$r_allele_peak45 == 0 & 
+                        RF_class$final_inf_prev == 0, 
+                      1, 0) 
+
+# have extinction column already
+RF_class$EX <- RF_class$extinct 
+
+RF_class$NR <- ifelse(RF_class$extinct == 0 & 
+                      (abs(RF_class$last_50-RF_class$first_50-RF_class$tot_50) > 0.5*RF_class$tot_50 | RF_class$tot_50 < 3) &
+                      RF_class$at_K == 1, 1, 0) 
+
+RF_class$clss <- ifelse(RF_class$EX == 1, "EX", 
+                        ifelse(RF_class$ER == 1, "ER", 
+                               ifelse(RF_class$IL == 1, "IL",
+                                      ifelse(RF_class$NR == 1, "NR", "UNK")))) # ~20% unknowns
+
+RF_class$clss <- as.factor(RF_class$clss) 
+plot(RF_class$clss) # mostly ER, extinction, some NR/UNK
+
+# grab subset (uncorrelated variables) to run RF on
+pred_vars <- c(2, 3, 6, 10, 14, 17, 22, 26, 28:30, 32, 34, 36, 37, 66, 67, 68, 69)
+RF_df <- cbind(RF_class[, pred_vars], RF_class$clss)
+colnames(RF_df) <- c(colnames(RF_df)[1:19], "clss")
+
+# use optRF functions to get a sense of tree optimization
+# note this takes a while to run
+exp_opt <- opt_importance(y = RF_df[,20], X=RF_df[,-20])
+
+# ranger -- super fast, little visualization, can get importance
+frst_clss <- ranger(clss ~ ., data = RF_df, 
+                    num.trees = 200, 
+                    classification = T, # make sure it's a classification tree
+                    importance = "permutation", # get some importance stats
+                    write.forest = F) # save memory
+
+# randomForest -- slower, but more features??
+# rf_clss <- randomForest(clss ~ ., data = RF_df, ntree=50, importance = T, localImp = T, type = "classification")
+
+# rpart for tree
+rp_clss <- rpart(clss ~ ., data = RF_df, method = "class")
+rpart.plot(rp_clss, 
+           type = 5, 
+           legend.x = NA, legend.y = NA,
+           # colors might need reordering, trying to match to decision tree in methods
+           box.palette=list("#ac1457", "black", "#DB6341", "#f1c4a2", "white"),
+           # just play with this... no clear ordering/meaning?
+           col = c("white", "black", "black", "black", "black", "white", "black", "white","black"))

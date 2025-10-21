@@ -1,0 +1,26 @@
+{
+    "id": "07CF7A2E",
+    "path": "~/GitHub/hostpath_ER/funcs/00_model_cluster.R",
+    "project_path": "funcs/00_model_cluster.R",
+    "type": "r_source",
+    "hash": "0",
+    "contents": "",
+    "dirty": false,
+    "created": 1760388696605.0,
+    "source_on_save": false,
+    "relative_order": 8,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "40,2",
+        "scrollLine": "27"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1760118624,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1760118624,
+    "read_only": false,
+    "read_only_alternatives": []
+}

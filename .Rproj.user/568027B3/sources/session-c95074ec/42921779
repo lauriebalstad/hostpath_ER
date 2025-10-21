@@ -1,0 +1,28 @@
+{
+    "id": "42921779",
+    "path": null,
+    "project_path": null,
+    "type": "object_explorer",
+    "hash": "0",
+    "contents": "",
+    "dirty": false,
+    "created": 1760633340853.0,
+    "source_on_save": false,
+    "relative_order": 8,
+    "properties": {
+        "id": "0520a2241a0e45c78a80ac8b5274fecc",
+        "name": "rp_clss",
+        "title": "rp_clss",
+        "language": "R",
+        "source_window_id": "",
+        "Source": "Source"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 2997821289408,
+    "encoding": "",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1760633340853,
+    "read_only": false,
+    "read_only_alternatives": []
+}

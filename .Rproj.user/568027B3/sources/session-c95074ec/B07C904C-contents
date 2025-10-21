@@ -1,0 +1,13 @@
+# run 01_run_randomForest.R through creating RF_df
+
+n_tree <- c(10, 100, 500, 1000, 1500)
+
+set.seed(103)
+
+for (i in 1:n_tree) {
+  
+  
+  
+}
+
+set.seed(469)

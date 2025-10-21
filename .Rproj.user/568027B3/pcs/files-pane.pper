@@ -6,7 +6,7 @@
         },
         {
             "columnIndex": 2,
-            "ascending": true
+            "ascending": false
         }
     ],
     "path": "~/GitHub/hostpath_ER/sens"
