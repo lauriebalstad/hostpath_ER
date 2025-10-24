@@ -1,0 +1,28 @@
+{
+    "id": "3EBA8755",
+    "path": null,
+    "project_path": null,
+    "type": "object_explorer",
+    "hash": "0",
+    "contents": "",
+    "dirty": false,
+    "created": 1761338944320.0,
+    "source_on_save": false,
+    "relative_order": 12,
+    "properties": {
+        "id": "d217d6c570bb4eb6b5232abc9ddf6a89",
+        "name": "frst_mv",
+        "title": "frst_mv",
+        "language": "R",
+        "source_window_id": "",
+        "Source": "Source"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 5928249386736906241,
+    "encoding": "",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1761338944320,
+    "read_only": false,
+    "read_only_alternatives": []
+}

@@ -140,62 +140,131 @@ saveRDS(frst_clss, "sens/forest_class.Rdata")
 # rf_clss <- randomForest(clss ~ ., data = RF_df, ntree=50, importance = T, localImp = T, type = "classification")
 
 # rpart for tree
-rp_clss <- rpart(clss ~ ., data = RF_df, method = "class")
-rpart.plot(rp_clss, 
-           type = 5, 
-           legend.x = NA, legend.y = NA,
-           # colors might need reordering, trying to match to decision tree in methods
-           box.palette=list("#ac1457", "black", "#DB6341", "#f1c4a2", "white"),
-           # just play with this... no clear ordering/meaning?
-           col = c("white", "white", "white", "black", "white", "black", "black", "black","black")) # hmmm...
+# rp_clss <- rpart(clss ~ ., data = RF_df, method = "class")
+# rpart.plot(rp_clss, 
+#            type = 5, 
+#            legend.x = NA, legend.y = NA,
+#            # colors might need reordering, trying to match to decision tree in methods
+#            box.palette=list("#ac1457", "black", "#DB6341", "#f1c4a2", "white"),
+#            # just play with this... no clear ordering/meaning?
+#            col = c("white", "white", "white", "black", "white", "black", "black", "black","black")) # hmmm...
+# 
+# # plot importance
+# RF_imp <- data.frame(name_vals = colnames(RF_df[1:19]), 
+#                      typ = c("disease ecology", "disease ecology", 
+#                              "force of disease", "force of disease", 
+#                              "background", "force of disease", 
+#                              "force of disease", 
+#                              "background", "adaptation", 
+#                              "background", "background", 
+#                              "force of disease", 
+#                              "background", 
+#                              "disease ecology", 
+#                              "adaptation", "adaptation", "adaptation", 
+#                              "background", 
+#                              "adaptation"), 
+#                      imprt = RF$variable.importance)
+# RF_imp$neat_names <- c("compartments", "event order", 
+#                        "enviro. transmission", "dens. transmission", 
+#                        "background mort.", "infect. mort.", 
+#                        "recovery rate",
+#                        "avg. reproduction", 
+#                        "mutation prob.", 
+#                        "carrying capacity", "carrying capacity SD", 
+#                        "disease gens.", 
+#                        "init. infect.", 
+#                        "transmission type", 
+#                        "adaptation pathway", "adaptive benefit", 
+#                        "dominance", "trait SD", "adaptive cost")
+# 
+# RF_imp <- RF_imp %>% arrange(desc(`imprt`))
+# RF_plt <- ggplot(data = RF_imp, aes(`imprt`, reorder(neat_names, `imprt`))) +
+#   geom_linerange(aes(xmin = 0, xmax = `imprt`)) +
+#   geom_point(aes(col = typ), size = 3) + # alt: aes(size = log(IncNodePurity))
+#   labs(x = "", y = NULL, col = "parameter\ntype:") +
+#   scale_color_manual(values = c("#ac1457", "#DB6341", "#f1c4a2", "black"),
+#                      breaks = c("adaptation", "force of disease", "disease ecology", "background"),
+#                      labels = c("adaptation", "force\nof disease", "disease\necology", "background")) +
+#   theme_bw() +
+#   theme(text = element_text(size = 12),
+#         legend.text = element_text(size = 12),
+#         legend.title = element_text(size = 12),
+#         legend.position = "bottom")
+# 
+# # plot the different outcomes
+# RF_dist <- RF_class; RF_dist$clss_lvl <- factor(RF_dist$clss, levels = c("Ext", "ER", "IL", "NR", "UNK"))
+# RF_dist_plt <- ggplot(data = RF_dist, aes(clss_lvl, fill = clss_lvl)) + geom_bar(col = "black") + 
+#   labs(x = "simulation outcome", y = "count", fill = NULL) + 
+#   scale_fill_manual(values = c("black", "#ac1457", "#DB6341", "#f1c4a2", "white")) + 
+#   theme_bw() + 
+#   theme(text = element_text(size = 12), 
+#         legend.position = "none") 
 
-# plot importance
-RF_imp <- data.frame(name_vals = colnames(RF_df[1:19]), 
-                     typ = c("disease ecology", "disease ecology", 
-                             "force of disease", "force of disease", 
-                             "background", "force of disease", 
-                             "force of disease", 
-                             "background", "adaptation", 
-                             "background", "background", 
-                             "force of disease", 
-                             "background", 
-                             "disease ecology", 
-                             "adaptation", "adaptation", "adaptation", 
-                             "background", 
-                             "adaptation"), 
-                     imprt = RF$variable.importance)
-RF_imp$neat_names <- c("compartments", "event order", 
-                       "enviro. transmission", "dens. transmission", 
-                       "background mort.", "infect. mort.", 
+# alternatively, try distributed random forest, which deals with the fact that the outcome is a distribution not a category
+# make outcome matrix
+# get probabilities
+p_ex <- RF_class %>% group_by(param_num) %>% summarise(p_ex = mean(Ext))
+p_er <- RF_class %>% group_by(param_num) %>% summarise(p_er = mean(ER))
+p_il <- RF_class %>% group_by(param_num) %>% summarise(p_il = mean(IL))
+p_nr <- RF_class %>% group_by(param_num) %>% summarise(p_nr = mean(NR))
+p_uk <- RF_class %>% group_by(param_num) %>% summarise(p_uk = sum(clss=="UNK")/1000) # change to n sims
+# merge everyone
+tmp <- merge(p_ex, p_er, all = T)
+tmp <- merge(tmp, p_il, all = T)
+tmp <- merge(tmp, p_nr, all = T)
+out_mat <- merge(tmp, p_uk, all = T)
+# check that out_mat is adding to 1
+tmp_check <- out_mat %>% mutate(tot_prob = p_ex + p_er + p_il + p_nr + p_uk); range(tmp_check$tot_prob)
+# clean up the input data -- only need one row for each now
+pred_vars <- c(1, 2, 3, 6, 10, 14, 17, 22, 26, 28:30, 32, 34, 36, 37, 66, 67, 68, 69)
+in_mat <- RF_class[seq(from = 1, to = dim(RF_df)[1], by = 1000), pred_vars]
+# now run the forest
+tmp_df <- cbind(in_mat[2:20], out_mat[2:6])
+clss_mv <- rfsrc(cbind(p_ex, p_er, p_il, p_nr, p_uk) ~ ., data = tmp_df, importance = "permute")
+plot(clss_mv) # first look for one variable only!
+imp <- vimp(clss_mv, importance ="permute") # this repeats variable calc from above fyi
+# imp$regrOutput$p_ex$importance to get importance for a particular outcome
+# look into holdout.vimp -- maybe more what we're looking for? 
+ho_imp <- holdout.vimp(cbind(p_ex, p_er, p_il, p_nr, p_uk) ~ ., data = tmp_df)
+# also plot.variable -- basically partials for p_er in this case at least
+plot.variable(clss_mv, m.target = "p_er") 
+
+# plotting decision tree....
+my_tr <- get.tree(clss_mv, tree.id = 1:500, ensemble = T)
+plot(my_tr)
+
+# make a data frame of the importances
+imp_plt_dt <- data.frame(called_names = imp$xvar.names, 
+                         p_ex = imp$regrOutput$p_ex$importance, 
+                         p_er = imp$regrOutput$p_er$importance, 
+                         p_il = imp$regrOutput$p_il$importance, 
+                         p_nr = imp$regrOutput$p_nr$importance, 
+                         p_uk = imp$regrOutput$p_uk$importance)
+imp_plt_dt$neat_names <- c("compartments", "event order",
+                       "enviro. transmission", "dens. transmission",
+                       "background mort.", "infect. mort.",
                        "recovery rate",
-                       "avg. reproduction", 
-                       "mutation prob.", 
-                       "carrying capacity", "carrying capacity SD", 
-                       "disease gens.", 
-                       "init. infect.", 
-                       "transmission type", 
-                       "adaptation pathway", "adaptive benefit", 
+                       "avg. reproduction",
+                       "mutation prob.",
+                       "carrying capacity", "carrying capacity SD",
+                       "disease gens.",
+                       "init. infect.",
+                       "transmission type",
+                       "adaptation pathway", "adaptive benefit",
                        "dominance", "trait SD", "adaptive cost")
+imp_plt_long <- pivot_longer(imp_plt_dt, cols = 2:6)
 
-RF_imp <- RF_imp %>% arrange(desc(`imprt`))
-RF_plt <- ggplot(data = RF_imp, aes(`imprt`, reorder(neat_names, `imprt`))) + 
-  geom_linerange(aes(xmin = 0, xmax = `imprt`)) + 
-  geom_point(aes(col = typ), size = 3) + # alt: aes(size = log(IncNodePurity))
-  labs(x = "", y = NULL, col = "parameter\ntype:") + 
-  scale_color_manual(values = c("#ac1457", "#DB6341", "#f1c4a2", "black"), 
-                     breaks = c("adaptation", "force of disease", "disease ecology", "background"), 
-                     labels = c("adaptation", "force\nof disease", "disease\necology", "background")) + 
-  theme_bw() + 
-  theme(text = element_text(size = 12), 
+inv_imp <- ggplot(data = imp_plt_long, aes(`value`, reorder(neat_names, `value`))) +
+  geom_linerange(aes(xmin = 0, xmax = `value`)) +
+  geom_point(aes(col = name), size = 3) + # alt: aes(size = log(IncNodePurity))
+  labs(x = "", y = NULL, col = "importance to probaiblity:") +
+  scale_color_manual(values = c("#ac1457", "black", "#DB6341", "#f1c4a2", "gray")) +
+  facet_wrap(~name, nrow = 1) + 
+  theme_bw() +
+  theme(text = element_text(size = 12),
         legend.text = element_text(size = 12),
-        legend.title = element_text(size = 12), 
-        legend.position = "bottom") 
+        legend.title = element_text(size = 12),
+        legend.position = "bottom")
 
-# plot the different outcomes
-RF_dist <- RF_class; RF_dist$clss_lvl <- factor(RF_dist$clss, levels = c("Ext", "ER", "IL", "NR", "UNK"))
-RF_dist_plt <- ggplot(data = RF_dist, aes(clss_lvl, fill = clss_lvl)) + geom_bar(col = "black") + 
-  labs(x = "simulation outcome", y = "count", fill = NULL) + 
-  scale_fill_manual(values = c("black", "#ac1457", "#DB6341", "#f1c4a2", "white")) + 
-  theme_bw() + 
-  theme(text = element_text(size = 12), 
-        legend.position = "none") 
+# looking at a tree
+get.tree(clss_mv, ensemble = T)

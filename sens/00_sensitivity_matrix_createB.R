@@ -73,7 +73,6 @@ parm_mat[,34] <- rep(160) # ngens between 120-140
 # 1: mortality, 2: transmission, 3: clearance
 # 4: M+T, 5: M+C, 6: T+C, 7: M+T+C
 for (i in 1:dim(parm_mat)[1]) {
-  # anything w mortality
   if (parm_mat[i,37] %in% c(2, 3, 6)) parm_mat[i,14:15] <- parm_mat[i,16] # no mortality: m_IWW == m_SWW
   if (parm_mat[i,37] %in% c(1, 3, 5)) parm_mat[i,3:4] <- parm_mat[i,5] # no transmission: density
   if (parm_mat[i,37] %in% c(1, 3, 5)) parm_mat[i,7:8] <- parm_mat[i,9] # no transmission: freq

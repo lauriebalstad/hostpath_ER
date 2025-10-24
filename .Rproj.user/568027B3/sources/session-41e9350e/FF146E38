@@ -3,7 +3,7 @@
     "path": "~/GitHub/hostpath_ER/figs/sim_fig_dat/01_sim_main.R",
     "project_path": "figs/sim_fig_dat/01_sim_main.R",
     "type": "r_source",
-    "hash": "802043484",
+    "hash": "0",
     "contents": "",
     "dirty": false,
     "created": 1761147436081.0,
@@ -12,8 +12,8 @@
     "properties": {
         "source_window_id": "",
         "Source": "Source",
-        "cursorPosition": "79,25",
-        "scrollLine": "87"
+        "cursorPosition": "215,21",
+        "scrollLine": "199"
     },
     "folds": "127|21|179|0|\n",
     "lastKnownWriteTime": 1761068761,

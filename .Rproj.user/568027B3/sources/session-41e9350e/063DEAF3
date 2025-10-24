@@ -1,0 +1,28 @@
+{
+    "id": "063DEAF3",
+    "path": null,
+    "project_path": null,
+    "type": "object_explorer",
+    "hash": "0",
+    "contents": "",
+    "dirty": false,
+    "created": 1761342195907.0,
+    "source_on_save": false,
+    "relative_order": 15,
+    "properties": {
+        "id": "18c136f4e7d94deb9a2dcb15f00839e8",
+        "name": "jt_imp",
+        "title": "jt_imp",
+        "language": "R",
+        "source_window_id": "",
+        "Source": "Source"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 2686075175752,
+    "encoding": "",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1761342195907,
+    "read_only": false,
+    "read_only_alternatives": []
+}
