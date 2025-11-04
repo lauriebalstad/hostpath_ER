@@ -8,7 +8,7 @@ library(ggparty)
 
 #-----SUPP: COMP SIMULATIONS-----
 # note: run random forest first, that's where sim_dat is from
-str_dat_A <- readRDS("dat/retest_gsa200_1010.Rdata")
+str_dat_A <- readRDS("dat/gsa_result_1029.Rdata")
 # convert to df
 str_dtf_A <- as.data.frame(matrix(unlist(str_dat_A), ncol = 29, byrow = T))
 colnames(str_dtf_A) <- c("extinct", 
@@ -28,20 +28,26 @@ colnames(str_dtf_A) <- c("extinct",
 # run 02_run_randomForest.R first, that's the combined data for GSAs
 str_dtf_B <- sim_dat %>% filter(parm_number < 201)
 
+# dummy data frame of parameter numbers
+parm_nums <- data.frame(parm_number = 1:200)
+
 # calc probs and merge for ext, er, il
 str_ex_A <- str_dtf_A %>% filter(extinct == 1) %>% group_by(parm_number) %>% summarise(`P(Ex) - A` = n()/2500)
 str_ex_B <- str_dtf_B %>% filter(extinct == 1) %>% group_by(parm_number) %>% summarise(`P(Ex) - B` = n()/2500)
 fig_ex <- merge(str_ex_A, str_ex_B, by = "parm_number", all = T) # NB: not keeping parameter row when both are zeros... get those back in!
+fig_ex <- merge(fig_ex, parm_nums, all = T)
 fig_ex$diff <- ifelse(is.na(fig_ex$`P(Ex) - A`), 0, fig_ex$`P(Ex) - A`) - ifelse(is.na(fig_ex$`P(Ex) - B`), 0, fig_ex$`P(Ex) - B`)
 
 str_er_A <- str_dtf_A %>% filter(extinct == 0 & abs(last_50-first_50-tot_50) <3 & tot_50 > 3 &  at_K95 == 1 & r_allele_peak45 == 1) %>% group_by(parm_number) %>% summarise(`P(ER) - A` = n()/2500)
 str_er_B <- str_dtf_B %>% filter(extinct == 0 & abs(last_50-first_50-tot_50) <3 & tot_50 > 3 &  at_K95 == 1 & r_allele_peak45 == 1) %>% group_by(parm_number) %>% summarise(`P(ER) - B` = n()/2500)
 fig_er <- merge(str_er_A, str_er_B, by = "parm_number", all = T) # NB: not keeping parameter row when both are zeros... get those back in!
+fig_er <- merge(fig_er, parm_nums, all = T)
 fig_er$diff <- ifelse(is.na(fig_er$`P(ER) - A`), 0, fig_er$`P(ER) - A`) - ifelse(is.na(fig_er$`P(ER) - B`), 0, fig_er$`P(ER) - B`)
 
 str_il_A <- str_dtf_A %>% filter(extinct == 0 & abs(last_50-first_50-tot_50) <3 & tot_50 > 3 & at_K95 == 1 & r_allele_peak45 == 0 & final_inf_prev == 0) %>% group_by(parm_number) %>% summarise(`P(IL) - A` = n()/2500)
 str_il_B <- str_dtf_B %>% filter(extinct == 0 & abs(last_50-first_50-tot_50) <3 & tot_50 > 3 & at_K95 == 1 & r_allele_peak45 == 0 & final_inf_prev == 0) %>% group_by(parm_number) %>% summarise(`P(IL) - B` = n()/2500)
 fig_il <- merge(str_il_A, str_il_B, by = "parm_number", all = T) # NB: not keeping parameter row when both are zeros... get those back in!
+fig_il <- merge(fig_il, parm_nums, all = T)
 fig_il$diff <- ifelse(is.na(fig_il$`P(IL) - A`), 0, fig_il$`P(IL) - A`) - ifelse(is.na(fig_il$`P(IL) - B`), 0, fig_il$`P(IL) - B`)
 
 # combine to plot the things
@@ -276,72 +282,119 @@ RF_imp$neat_names <- c("compartments", "event order",
 # set up colnames for tree
 colnames(RF_df) <- c(RF_imp$neat_names, "clss") # rename so things aren't ugly, rpart deals with this fine compared to ranger
 
-# now plot importance
-RF_imp <- RF_imp %>% arrange(desc(`imprt`))
-RF_imp$main_name <- rep("Global sensivity importance")
-figS2C <- ggplot(data = RF_imp, aes(`imprt`, reorder(neat_names, `imprt`))) + 
-  geom_linerange(aes(xmin = 0, xmax = `imprt`)) + 
-  geom_point(aes(col = typ), size = 1.5) + # alt: aes(size = log(IncNodePurity))
-  labs(x = NULL, y = NULL, col = "parameter\ntype:") + 
-  scale_color_manual(values = c("#ac1457", "#DB6341", "#f1c4a2", "black"), 
-                     breaks = c("adaptation", "force of disease", "disease ecology", "background"), 
-                     labels = c("adaptation", "force\nof disease", "disease\necology", "background")) + 
-  theme_bw() + facet_wrap(~main_name) + 
-  # guides(color = guide_legend(nrow = 2)) +
-  theme(text = element_text(size = 11), 
-        legend.text = element_text(size = 8),
-        legend.title = element_text(size = 8),
-        legend.position = c(0.75, 0.25)) 
+# # now plot importance
+# RF_imp <- RF_imp %>% arrange(desc(`imprt`))
+# RF_imp$main_name <- rep("Global sensivity importance")
+# figS2C <- ggplot(data = RF_imp, aes(`imprt`, reorder(neat_names, `imprt`))) + 
+#   geom_linerange(aes(xmin = 0, xmax = `imprt`)) + 
+#   geom_point(aes(col = typ), size = 1.5) + # alt: aes(size = log(IncNodePurity))
+#   labs(x = NULL, y = NULL, col = "parameter\ntype:") + 
+#   scale_color_manual(values = c("#ac1457", "#DB6341", "#f1c4a2", "black"), 
+#                      breaks = c("adaptation", "force of disease", "disease ecology", "background"), 
+#                      labels = c("adaptation", "force\nof disease", "disease\necology", "background")) + 
+#   theme_bw() + facet_wrap(~main_name) + 
+#   # guides(color = guide_legend(nrow = 2)) +
+#   theme(text = element_text(size = 11), 
+#         legend.text = element_text(size = 8),
+#         legend.title = element_text(size = 8),
+#         legend.position = c(0.75, 0.25)) 
+# 
+# fig1C <- ggplot(data = RF_imp[1:8,], aes(`imprt`, reorder(neat_names, `imprt`))) + 
+#   geom_linerange(aes(xmin = 0, xmax = `imprt`)) + 
+#   geom_point(aes(col = typ), size = 3) + # alt: aes(size = log(IncNodePurity))
+#   labs(x = NULL, y = NULL, col = "parameter type:") + 
+#   scale_color_manual(values = c("#ac1457", "#DB6341", "#f1c4a2", "black"), 
+#                      breaks = c("adaptation", "force of disease", "disease ecology", "background"), 
+#                      labels = c("adaptation", "force\nof disease", "disease\necology", "background")) + 
+#   theme_bw() + facet_wrap(~main_name) + 
+#   # guides(color = guide_legend(nrow = 2)) +
+#   theme(text = element_text(size = 11), 
+#         legend.text = element_text(size = 8),
+#         legend.title = element_text(size = 8),
+#         legend.position = "bottom") 
+# 
+# # plot the different outcomes
+# RF_dist <- RF_class; RF_dist$clss_lvl <- factor(RF_dist$clss, levels = c("Ext", "ER", "IL", "NR", "UNK"))
+# RF_dist$main_name  <- rep("Distribution of simulation outcomes")
+# figS2A <- ggplot(data = RF_dist, aes(clss_lvl, fill = clss_lvl)) + geom_bar(col = "black") + 
+#   labs(x = "simulation outcome", y = "n simulations from GSA", fill = NULL) + 
+#   scale_fill_manual(values = c("black", "#ac1457", "#DB6341", "#f1c4a2", "white")) + 
+#   theme_bw() + facet_wrap(~main_name) + 
+#   theme(text = element_text(size = 8), 
+#         legend.position = "none") 
+# 
+# # rpart for tree
+# rp_clss <- rpart(clss ~ ., data = RF_df, method = "class")
+# # rpart.plot(rp_clss, 
+# #            type = 5, 
+# #            legend.x = NA, legend.y = NA,
+# #            # colors might need reordering, trying to match to decision tree in methods
+# #            box.palette=list("#ac1457", "black", "#DB6341", "#f1c4a2", "white"),
+# #            # just play with this... no clear ordering/meaning?
+# #            col = c("white", "white", "white", "black", "white", "black", "black", "black","black")) # hmmm...
+# # use ggparty for tree making, will have to add legend and adjust plot theme tho
+# rp_clss$splits[, 4] <- round(rp_clss$splits[, 4], 2)
+# py_clss <- as.party(rp_clss)
+# figS2B <- ggparty(py_clss, horizontal = F, terminal_space = 0.3) +
+#   geom_edge() + 
+#   # add labels, nudge the label for dens. transmission a bit to the right so it's visable
+#   geom_edge_label(size = 2) + 
+#   # geom_edge_label(id = c(1:12, 15), size = 2) + geom_edge_label(id = 13:14, size = 2, nudge_x = 0.025) + 
+#   geom_node_splitvar(size = 2) +
+#   # pass list to gglist containing all ggplot components we want to plot for each
+#   geom_node_plot(gglist = list(geom_bar(aes(x = "", fill = clss),
+#                                         position = position_fill(), col = "black"),
+#                                xlab(NULL), ylab(NULL), 
+#                                theme_bw(), theme(text = element_text(size = 6), axis.text.x = element_blank()),
+#                                scale_fill_manual(values = c("#ac1457", "black", "#DB6341", "#f1c4a2", "white")))
+#   ) + theme(plot.margin=unit(c(0,0,0,0), "mm"))
 
-fig1C <- ggplot(data = RF_imp[1:8,], aes(`imprt`, reorder(neat_names, `imprt`))) + 
-  geom_linerange(aes(xmin = 0, xmax = `imprt`)) + 
-  geom_point(aes(col = typ), size = 3) + # alt: aes(size = log(IncNodePurity))
-  labs(x = NULL, y = NULL, col = "parameter type:") + 
-  scale_color_manual(values = c("#ac1457", "#DB6341", "#f1c4a2", "black"), 
-                     breaks = c("adaptation", "force of disease", "disease ecology", "background"), 
-                     labels = c("adaptation", "force\nof disease", "disease\necology", "background")) + 
-  theme_bw() + facet_wrap(~main_name) + 
-  # guides(color = guide_legend(nrow = 2)) +
-  theme(text = element_text(size = 11), 
-        legend.text = element_text(size = 8),
-        legend.title = element_text(size = 8),
-        legend.position = "bottom") 
+# make a data frame of the importances
+imp_plt_dt <- data.frame(called_names = imp$xvar.names,
+                         p_ex = imp$regrOutput$p_ex$importance,
+                         p_er = imp$regrOutput$p_er$importance,
+                         p_il = imp$regrOutput$p_il$importance,
+                         p_nr = imp$regrOutput$p_nr$importance,
+                         p_uk = imp$regrOutput$p_uk$importance)
+imp_plt_dt$neat_names <- c("host response potential", "event order",
+                           "enviro. transmission", "dens. transmission",
+                           "background mort.", "infect. mort.",
+                           "recovery rate",
+                           "avg. reproduction",
+                           "mutation prob.",
+                           "carrying capacity", "carrying capacity SD",
+                           "disease gens.",
+                           "init. infect.",
+                           "transmission type",
+                           "adaptation pathway", "adaptive benefit",
+                           "dominance", "trait SD", "adaptive cost")
+imp_plt_long <- pivot_longer(imp_plt_dt, cols = 2:6)
+imp_plt_long$name <- recode(imp_plt_long$name,
+                            p_er = "P(ER)",
+                            p_ex = "P(Ext)",
+                            p_il = "P(IL)",
+                            p_nr = "P(NR)",
+                            p_uk = "Unknown")
 
-# plot the different outcomes
-RF_dist <- RF_class; RF_dist$clss_lvl <- factor(RF_dist$clss, levels = c("Ext", "ER", "IL", "NR", "UNK"))
-RF_dist$main_name  <- rep("Distribution of simulation outcomes")
-figS2A <- ggplot(data = RF_dist, aes(clss_lvl, fill = clss_lvl)) + geom_bar(col = "black") + 
-  labs(x = "simulation outcome", y = "n simulations from GSA", fill = NULL) + 
-  scale_fill_manual(values = c("black", "#ac1457", "#DB6341", "#f1c4a2", "white")) + 
-  theme_bw() + facet_wrap(~main_name) + 
-  theme(text = element_text(size = 8), 
-        legend.position = "none") 
+imp_plt_short <- imp_plt_long %>% 
+  filter(neat_names %in% c("host response potential", 
+                           "event order",
+                           "disease gens.",
+                           "transmission type",
+                           "adaptation pathway", 
+                           "dominance"))
 
-# rpart for tree
-rp_clss <- rpart(clss ~ ., data = RF_df, method = "class")
-# rpart.plot(rp_clss, 
-#            type = 5, 
-#            legend.x = NA, legend.y = NA,
-#            # colors might need reordering, trying to match to decision tree in methods
-#            box.palette=list("#ac1457", "black", "#DB6341", "#f1c4a2", "white"),
-#            # just play with this... no clear ordering/meaning?
-#            col = c("white", "white", "white", "black", "white", "black", "black", "black","black")) # hmmm...
-# use ggparty for tree making, will have to add legend and adjust plot theme tho
-rp_clss$splits[, 4] <- round(rp_clss$splits[, 4], 2)
-py_clss <- as.party(rp_clss)
-figS2B <- ggparty(py_clss, horizontal = F, terminal_space = 0.3) +
-  geom_edge() + 
-  # add labels, nudge the label for dens. transmission a bit to the right so it's visable
-  geom_edge_label(size = 2) + 
-  # geom_edge_label(id = c(1:12, 15), size = 2) + geom_edge_label(id = 13:14, size = 2, nudge_x = 0.025) + 
-  geom_node_splitvar(size = 2) +
-  # pass list to gglist containing all ggplot components we want to plot for each
-  geom_node_plot(gglist = list(geom_bar(aes(x = "", fill = clss),
-                                        position = position_fill(), col = "black"),
-                               xlab(NULL), ylab(NULL), 
-                               theme_bw(), theme(text = element_text(size = 6), axis.text.x = element_blank()),
-                               scale_fill_manual(values = c("#ac1457", "black", "#DB6341", "#f1c4a2", "white")))
-  ) + theme(plot.margin=unit(c(0,0,0,0), "mm"))
+fig1C <- ggplot(data = imp_plt_short, aes(`value`, reorder(neat_names, `value`))) +
+  geom_linerange(aes(xmin = 0, xmax = `value`)) +
+  geom_point(aes(col = name), size = 3) + # alt: aes(size = log(IncNodePurity))
+  labs(x = NULL, y = NULL, col = "importance to event:") +
+  scale_color_manual(values = c("#ac1457", "black", "#DB6341", "#f1c4a2", "gray")) +
+  facet_wrap(~name, nrow = 1) +
+  theme_bw() +
+  theme(text = element_text(size = 12),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 12),
+        legend.position = "bottom")
 
 fig1_h <- plot_grid(fig1A, fig1B, ncol = 2, rel_widths = c(0.6, 1))
 fig1 <- plot_grid(fig1_h, fig1C, ncol = 1, rel_heights = c(1, 0.5))
@@ -355,26 +408,28 @@ png("figs/figure_plot/pathways_trees_1022.png",height=190,width=170,res=400,unit
 print(fig1)
 dev.off()
 
+# figure out pieces for supp figure???
 # combine the pieces for the supplementary figure
 # figS2_i <- ggdraw() +
 #   draw_plot(figS2C) +
 #   draw_plot(figS2A, x = 0.6, y = 0.3, width = .35, height = .35)
-con_tab <- data.frame("outcome" = c("ER", "Ext", "IL", "NR", "UNK"), 
-                 ER = frst_clss$confusion.matrix[, 1],
-                 Ext = frst_clss$confusion.matrix[, 2],
-                 IL = frst_clss$confusion.matrix[, 3],
-                 NR = frst_clss$confusion.matrix[, 4],
-                 UNK = frst_clss$confusion.matrix[, 5]
-)
-con_grob <- tableGrob(con_tab, rows = NULL, theme = ttheme_default(base_size = 6, parse = T))
-figS2_v <- plot_grid(figS2A, con_grob, ncol = 1, rel_heights = c(1, 1))
-figS2_h <- plot_grid(figS2_v, figS2C, ncol = 2, rel_widths = c(0.7, 1))
-figS2 <- plot_grid(figS2_h, figS2B, ncol = 1, rel_heights = c(1, 1.2))
-# figS2
+# con_tab <- data.frame("outcome" = c("ER", "Ext", "IL", "NR", "UNK"), 
+#                  ER = frst_clss$confusion.matrix[, 1],
+#                  Ext = frst_clss$confusion.matrix[, 2],
+#                  IL = frst_clss$confusion.matrix[, 3],
+#                  NR = frst_clss$confusion.matrix[, 4],
+#                  UNK = frst_clss$confusion.matrix[, 5]
+# )
+# con_grob <- tableGrob(con_tab, rows = NULL, theme = ttheme_default(base_size = 6, parse = T))
 
-png("figs/figure_plot/SUPP_decision_tree_1022.png",height=210,width=170,res=400,units='mm')
-print(figS2)
-dev.off()
+# figS2_v <- plot_grid(figS2A, con_grob, ncol = 1, rel_heights = c(1, 1))
+# figS2_h <- plot_grid(figS2_v, figS2C, ncol = 2, rel_widths = c(0.7, 1))
+# figS2 <- plot_grid(figS2_h, figS2B, ncol = 1, rel_heights = c(1, 1.2))
+# # figS2
+
+# png("figs/figure_plot/SUPP_decision_tree_1022.png",height=210,width=170,res=400,units='mm')
+# print(figS2)
+# dev.off()
 
 #-----FIG2: COST/BENEFIT-----
 # merge data: use the percents directly to avoid flipping around later
@@ -600,4 +655,6 @@ png("figs/figure_plot/dc_supp_1022.png",height=210,width=170,res=400,units='mm')
 print(figS1)
 dev.off()
 # figS1
+
+
 

@@ -1,0 +1,26 @@
+{
+    "id": "FF146E38",
+    "path": "~/GitHub/hostpath_ER/figs/sim_fig_dat/01_sim_main.R",
+    "project_path": "figs/sim_fig_dat/01_sim_main.R",
+    "type": "r_source",
+    "hash": "0",
+    "contents": "",
+    "dirty": false,
+    "created": 1761147436081.0,
+    "source_on_save": false,
+    "relative_order": 5,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "90,9",
+        "scrollLine": "0"
+    },
+    "folds": "127|21|179|0|\n",
+    "lastKnownWriteTime": 1761068761,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1761586760370,
+    "read_only": false,
+    "read_only_alternatives": []
+}

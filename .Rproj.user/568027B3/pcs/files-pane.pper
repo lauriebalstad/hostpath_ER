@@ -6,8 +6,8 @@
         },
         {
             "columnIndex": 2,
-            "ascending": false
+            "ascending": true
         }
     ],
-    "path": "~/GitHub/hostpath_ER/sens"
+    "path": "~/GitHub/hostpath_ER/figs/figure_plot"
 }
