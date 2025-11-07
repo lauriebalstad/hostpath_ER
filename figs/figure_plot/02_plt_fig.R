@@ -83,9 +83,9 @@ comp_sim_hist <- ggplot(fig_long, aes(x = value, fill = metric)) +
                      axis.text.x = element_text(angle = 45, hjust = 1))
 
 # save figure
-# png("figs/figure_plot/comp_sim_hist.png",height=170,width=85,res=400,units='mm')
-# print(comp_sim_hist)
-# dev.off()
+png("figs/figure_plot/SUPP_conv_1106.png",height=170,width=85,res=400,units='mm')
+print(comp_sim_hist)
+dev.off()
 comp_sim_hist
 
 intv <- max(
@@ -222,7 +222,8 @@ tmp <- merge(tmp, il_dat, by = c("parm_number"), all = T)
 tmp <- merge(tmp, er_tmp_dat, by = c("parm_number"), all = T)
 plot_dat <- merge(tmp, cases, by.x = c("parm_number"), by.y = "number")
 # rename
-plot_dat$compartments <- recode(plot_dat$compartments, "1" = "SIX", "2" = "SIS", "3" = "SIR")
+plot_dat$compartments <- recode(plot_dat$compartments, "1" = "mortality", "2" = "recovery", "3" = "immunity")
+plot_dat$compartments <- factor(plot_dat$compartments, levels = c("mortality", "recovery", "immunity"))
 plot_dat$`transmission type` <- recode(plot_dat$`transmission type`, "1" = "density", "2" = "environmental", "3" = "density + environmental")
 plot_dat$robustness <- recode(plot_dat$robustness, "1" = "MB", "2" = "TB", "3" = "RA", "4" = "N")
 plot_dat$`evolutionary pathway` <- factor(plot_dat$robustness, levels = c("N", "TB", "MB", "RA"))
@@ -250,112 +251,15 @@ fig1B <- ggplot(plot_long, aes(`evolutionary pathway`, value, col = `transmissio
 # fig1B
 
 # then figure 1B is all the GSA figures--make sure 02_run_randomForest.R is run first!
-frst_clss <- readRDS("sens/forest_class.Rdata")
-# plot importance
-RF_imp <- data.frame(name_vals = colnames(RF_df[1:19]), 
-                     typ = c("disease ecology", "disease ecology", 
-                             "force of disease", "force of disease", 
-                             "background", "force of disease", 
-                             "force of disease", 
-                             "background", "adaptation", 
-                             "background", "background", 
-                             "force of disease", 
-                             "background", 
-                             "disease ecology", 
-                             "adaptation", "adaptation", "adaptation", 
-                             "background", 
-                             "adaptation"), 
-                     imprt = frst_clss$variable.importance)
-RF_imp$neat_names <- c("compartments", "event order", 
-                       "enviro. transmission rate", "dens. transmission rate", 
-                       "background mort. rate", "infect. mort. rate", 
-                       "recovery rate",
-                       "avg. reproduction", 
-                       "mutation prob.", 
-                       "carrying capacity", "carrying capacity SD", 
-                       "disease gens.", 
-                       "init. infect.", 
-                       "transmission type", 
-                       "adaptation pathway", "adaptive benefit", 
-                       "dominance", "trait SD", "adaptive cost")
-
-# set up colnames for tree
-colnames(RF_df) <- c(RF_imp$neat_names, "clss") # rename so things aren't ugly, rpart deals with this fine compared to ranger
-
-# # now plot importance
-# RF_imp <- RF_imp %>% arrange(desc(`imprt`))
-# RF_imp$main_name <- rep("Global sensivity importance")
-# figS2C <- ggplot(data = RF_imp, aes(`imprt`, reorder(neat_names, `imprt`))) + 
-#   geom_linerange(aes(xmin = 0, xmax = `imprt`)) + 
-#   geom_point(aes(col = typ), size = 1.5) + # alt: aes(size = log(IncNodePurity))
-#   labs(x = NULL, y = NULL, col = "parameter\ntype:") + 
-#   scale_color_manual(values = c("#ac1457", "#DB6341", "#f1c4a2", "black"), 
-#                      breaks = c("adaptation", "force of disease", "disease ecology", "background"), 
-#                      labels = c("adaptation", "force\nof disease", "disease\necology", "background")) + 
-#   theme_bw() + facet_wrap(~main_name) + 
-#   # guides(color = guide_legend(nrow = 2)) +
-#   theme(text = element_text(size = 11), 
-#         legend.text = element_text(size = 8),
-#         legend.title = element_text(size = 8),
-#         legend.position = c(0.75, 0.25)) 
-# 
-# fig1C <- ggplot(data = RF_imp[1:8,], aes(`imprt`, reorder(neat_names, `imprt`))) + 
-#   geom_linerange(aes(xmin = 0, xmax = `imprt`)) + 
-#   geom_point(aes(col = typ), size = 3) + # alt: aes(size = log(IncNodePurity))
-#   labs(x = NULL, y = NULL, col = "parameter type:") + 
-#   scale_color_manual(values = c("#ac1457", "#DB6341", "#f1c4a2", "black"), 
-#                      breaks = c("adaptation", "force of disease", "disease ecology", "background"), 
-#                      labels = c("adaptation", "force\nof disease", "disease\necology", "background")) + 
-#   theme_bw() + facet_wrap(~main_name) + 
-#   # guides(color = guide_legend(nrow = 2)) +
-#   theme(text = element_text(size = 11), 
-#         legend.text = element_text(size = 8),
-#         legend.title = element_text(size = 8),
-#         legend.position = "bottom") 
-# 
-# # plot the different outcomes
-# RF_dist <- RF_class; RF_dist$clss_lvl <- factor(RF_dist$clss, levels = c("Ext", "ER", "IL", "NR", "UNK"))
-# RF_dist$main_name  <- rep("Distribution of simulation outcomes")
-# figS2A <- ggplot(data = RF_dist, aes(clss_lvl, fill = clss_lvl)) + geom_bar(col = "black") + 
-#   labs(x = "simulation outcome", y = "n simulations from GSA", fill = NULL) + 
-#   scale_fill_manual(values = c("black", "#ac1457", "#DB6341", "#f1c4a2", "white")) + 
-#   theme_bw() + facet_wrap(~main_name) + 
-#   theme(text = element_text(size = 8), 
-#         legend.position = "none") 
-# 
-# # rpart for tree
-# rp_clss <- rpart(clss ~ ., data = RF_df, method = "class")
-# # rpart.plot(rp_clss, 
-# #            type = 5, 
-# #            legend.x = NA, legend.y = NA,
-# #            # colors might need reordering, trying to match to decision tree in methods
-# #            box.palette=list("#ac1457", "black", "#DB6341", "#f1c4a2", "white"),
-# #            # just play with this... no clear ordering/meaning?
-# #            col = c("white", "white", "white", "black", "white", "black", "black", "black","black")) # hmmm...
-# # use ggparty for tree making, will have to add legend and adjust plot theme tho
-# rp_clss$splits[, 4] <- round(rp_clss$splits[, 4], 2)
-# py_clss <- as.party(rp_clss)
-# figS2B <- ggparty(py_clss, horizontal = F, terminal_space = 0.3) +
-#   geom_edge() + 
-#   # add labels, nudge the label for dens. transmission a bit to the right so it's visable
-#   geom_edge_label(size = 2) + 
-#   # geom_edge_label(id = c(1:12, 15), size = 2) + geom_edge_label(id = 13:14, size = 2, nudge_x = 0.025) + 
-#   geom_node_splitvar(size = 2) +
-#   # pass list to gglist containing all ggplot components we want to plot for each
-#   geom_node_plot(gglist = list(geom_bar(aes(x = "", fill = clss),
-#                                         position = position_fill(), col = "black"),
-#                                xlab(NULL), ylab(NULL), 
-#                                theme_bw(), theme(text = element_text(size = 6), axis.text.x = element_blank()),
-#                                scale_fill_manual(values = c("#ac1457", "black", "#DB6341", "#f1c4a2", "white")))
-#   ) + theme(plot.margin=unit(c(0,0,0,0), "mm"))
+frst <- readRDS("sens/rf_output.Rdata")
 
 # make a data frame of the importances
-imp_plt_dt <- data.frame(called_names = imp$xvar.names,
-                         p_ex = imp$regrOutput$p_ex$importance,
-                         p_er = imp$regrOutput$p_er$importance,
-                         p_il = imp$regrOutput$p_il$importance,
-                         p_nr = imp$regrOutput$p_nr$importance,
-                         p_uk = imp$regrOutput$p_uk$importance)
+imp_plt_dt <- data.frame(called_names = frst$xvar.names,
+                         p_ex = frst$regrOutput$p_ex$importance,
+                         p_er = frst$regrOutput$p_er$importance,
+                         p_il = frst$regrOutput$p_il$importance,
+                         p_nr = frst$regrOutput$p_nr$importance,
+                         p_uk = frst$regrOutput$p_uk$importance)
 imp_plt_dt$neat_names <- c("host response potential", "event order",
                            "enviro. transmission", "dens. transmission",
                            "background mort.", "infect. mort.",
@@ -390,11 +294,12 @@ fig1C <- ggplot(data = imp_plt_short, aes(`value`, reorder(neat_names, `value`))
   labs(x = NULL, y = NULL, col = "importance to event:") +
   scale_color_manual(values = c("#ac1457", "black", "#DB6341", "#f1c4a2", "gray")) +
   facet_wrap(~name, nrow = 1) +
-  theme_bw() +
+  theme_bw() + labs(col = NULL) + 
   theme(text = element_text(size = 12),
-        legend.text = element_text(size = 12),
-        legend.title = element_text(size = 12),
-        legend.position = "bottom")
+        legend.text = element_text(size = 8),
+        legend.title = element_text(size = 8),
+        legend.position = "bottom", 
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
 
 fig1_h <- plot_grid(fig1A, fig1B, ncol = 2, rel_widths = c(0.6, 1))
 fig1 <- plot_grid(fig1_h, fig1C, ncol = 1, rel_heights = c(1, 0.5))
@@ -404,32 +309,38 @@ fig1 <- plot_grid(fig1_h, fig1C, ncol = 1, rel_heights = c(1, 0.5))
 # fig1 <- plot_grid(fig1A, fig1B, rel_widths= c(0.55, 1), nrow = 1)
 
 # save figure
-png("figs/figure_plot/pathways_trees_1022.png",height=190,width=170,res=400,units='mm')
+png("figs/figure_plot/fig2_1106.png",height=190,width=170,res=400,units='mm')
 print(fig1)
 dev.off()
 
-# figure out pieces for supp figure???
-# combine the pieces for the supplementary figure
-# figS2_i <- ggdraw() +
-#   draw_plot(figS2C) +
-#   draw_plot(figS2A, x = 0.6, y = 0.3, width = .35, height = .35)
-# con_tab <- data.frame("outcome" = c("ER", "Ext", "IL", "NR", "UNK"), 
-#                  ER = frst_clss$confusion.matrix[, 1],
-#                  Ext = frst_clss$confusion.matrix[, 2],
-#                  IL = frst_clss$confusion.matrix[, 3],
-#                  NR = frst_clss$confusion.matrix[, 4],
-#                  UNK = frst_clss$confusion.matrix[, 5]
-# )
-# con_grob <- tableGrob(con_tab, rows = NULL, theme = ttheme_default(base_size = 6, parse = T))
+# supp figures re: GSA
+figS3 <- ggplot(data = imp_plt_long, aes(`value`, reorder(neat_names, `value`))) +
+  geom_linerange(aes(xmin = 0, xmax = `value`)) +
+  geom_point(aes(col = name), size = 3) + # alt: aes(size = log(IncNodePurity))
+  labs(x = NULL, y = NULL, col = "importance to event:") +
+  scale_color_manual(values = c("#ac1457", "black", "#DB6341", "#f1c4a2", "gray")) +
+  facet_wrap(~name, nrow = 1) +
+  theme_bw() +
+  theme(text = element_text(size = 12),
+        legend.text = element_text(size = 8),
+        legend.title = element_text(size = 8),
+        legend.position = "bottom", 
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
 
-# figS2_v <- plot_grid(figS2A, con_grob, ncol = 1, rel_heights = c(1, 1))
-# figS2_h <- plot_grid(figS2_v, figS2C, ncol = 2, rel_widths = c(0.7, 1))
-# figS2 <- plot_grid(figS2_h, figS2B, ncol = 1, rel_heights = c(1, 1.2))
-# # figS2
+png("figs/figure_plot/SUPP_fullimp_1106.png",height=100,width=170,res=400,units='mm')
+print(figS3)
+dev.off()
 
-# png("figs/figure_plot/SUPP_decision_tree_1022.png",height=210,width=170,res=400,units='mm')
-# print(figS2)
-# dev.off()
+figS2 <- ggplot(RF_class, aes(x = clss, fill = clss)) + geom_bar() + 
+  scale_fill_manual(values = c("#ac1457", "black", "#DB6341", "#f1c4a2", "gray")) +
+  theme_bw() + labs(x = "Classification") + 
+  theme(text = element_text(size = 12),
+        legend.position = "none", 
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
+
+png("figs/figure_plot/SUPP_rfouts_1106.png",height=80,width=85,res=400,units='mm')
+print(figS2)
+dev.off()
 
 #-----FIG2: COST/BENEFIT-----
 # merge data: use the percents directly to avoid flipping around later
@@ -502,7 +413,7 @@ fig2 <- ggplot(NULL, aes(x=as.factor(benefit), y=value, col = as.factor(cost))) 
   theme_bw() + theme(text = element_text(size = 11), legend.position = "bottom") + 
   labs(x = "Mutant allele benefit\n(percent change in probability)", col = "Mutant allele\ncost (avg. fecundity)", y = NULL)
 # save figure
-png("figs/figure_plot/cost_benefit_1022.png",height=160,width=170,res=400,units='mm')
+png("figs/figure_plot/fig3_1106.png",height=160,width=170,res=400,units='mm')
 print(fig2)
 dev.off()
 # fig2
@@ -572,7 +483,7 @@ fig3 <- ggplot(NULL, aes(x=as.factor(`population size`), y=value, col=as.factor(
   theme_bw() + theme(text = element_text(size = 11), legend.position = "bottom") + 
   labs(x = "Population size", col = "Mutation rate", y = NULL)
 # save figure
-png("figs/figure_plot/pop_mut_1022.png",height=160,width=85,res=400,units='mm')
+png("figs/figure_plot/fig4_1106.png",height=160,width=85,res=400,units='mm')
 print(fig3)
 dev.off()
 # if 3x3 grid, width = 170 (this is pm_fig_A_0209 or pm_fig_B_0209, using mortality blocking (2))
@@ -639,7 +550,7 @@ dc_timeK_long$outcome_f <- factor(dc_timeK_long$outcome, levels = c("P(Ext)", "P
                                                                   "Final M allele\nfrequency (ER)", "Final infection\nprevelence (ER)", "Time to\nrecovery (ER)"))
 dc_all_long$outcome_f <- factor(dc_all_long$outcome, levels = c("P(Ext)", "P(ER)", "P(IL)", 
                                                                 "Final M allele\nfrequency (ER)", "Final infection\nprevelence (ER)", "Time to\nrecovery (ER)"))
-figS1 <- ggplot(NULL, aes(x=as.factor(`disease cycles`), y=value, 
+figS4 <- ggplot(NULL, aes(x=as.factor(`disease cycles`), y=value, 
                                   col=as.factor(robustness))) + 
   coord_cartesian(ylim = c(0, NA)) +
   geom_boxplot(data = dc_timeK_long) + 
@@ -651,8 +562,8 @@ figS1 <- ggplot(NULL, aes(x=as.factor(`disease cycles`), y=value,
   labs(x = "Disease cycles between reproduction", col = "Adaptive pathway", y = NULL)
 # check labels/facet options! can either filter by one of the robustness or by one of the transmission 
 # save figure
-png("figs/figure_plot/dc_supp_1022.png",height=210,width=170,res=400,units='mm')
-print(figS1)
+png("figs/figure_plot/SUPP_dc_1106.png",height=210,width=170,res=400,units='mm')
+print(figS4)
 dev.off()
 # figS1
 

@@ -170,84 +170,6 @@ pred_vars <- c(2, 3, 6, 10, 14, 17, 22, 26, 28:30, 32, 34, 36, 37, 66, 67, 68, 6
 RF_df <- cbind(RF_class[, pred_vars], RF_class$clss)
 colnames(RF_df) <- c(colnames(RF_df)[1:19], "clss")
 
-# use optRF functions to get a sense of tree optimization
-# note this takes a while to run
-# exp_opt <- opt_importance(y = RF_df[,20], X=RF_df[,-20])
-# saveRDS(exp_opt, "sens/opt_trees.Rdata")
-# suggests 1000 trees, tho pretty high stability even at 250
-
-# # ranger -- super fast, little visualization, can get importance
-# frst_clss <- ranger(clss ~ ., data = RF_df, 
-#                     num.trees = 1000, 
-#                     classification = T, # make sure it's a classification tree
-#                     importance = "permutation", # get some importance stats
-#                     write.forest = F) # save memory
-# saveRDS(frst_clss, "sens/forest_class.Rdata")
-
-# randomForest -- slower, but more features??
-# rf_clss <- randomForest(clss ~ ., data = RF_df, ntree=50, importance = T, localImp = T, type = "classification")
-
-# rpart for tree
-# rp_clss <- rpart(clss ~ ., data = RF_df, method = "class")
-# rpart.plot(rp_clss, 
-#            type = 5, 
-#            legend.x = NA, legend.y = NA,
-#            # colors might need reordering, trying to match to decision tree in methods
-#            box.palette=list("#ac1457", "black", "#DB6341", "#f1c4a2", "white"),
-#            # just play with this... no clear ordering/meaning?
-#            col = c("white", "white", "white", "black", "white", "black", "black", "black","black")) # hmmm...
-# 
-# # plot importance
-# RF_imp <- data.frame(name_vals = colnames(RF_df[1:19]), 
-#                      typ = c("disease ecology", "disease ecology", 
-#                              "force of disease", "force of disease", 
-#                              "background", "force of disease", 
-#                              "force of disease", 
-#                              "background", "adaptation", 
-#                              "background", "background", 
-#                              "force of disease", 
-#                              "background", 
-#                              "disease ecology", 
-#                              "adaptation", "adaptation", "adaptation", 
-#                              "background", 
-#                              "adaptation"), 
-#                      imprt = RF$variable.importance)
-# RF_imp$neat_names <- c("compartments", "event order", 
-#                        "enviro. transmission", "dens. transmission", 
-#                        "background mort.", "infect. mort.", 
-#                        "recovery rate",
-#                        "avg. reproduction", 
-#                        "mutation prob.", 
-#                        "carrying capacity", "carrying capacity SD", 
-#                        "disease gens.", 
-#                        "init. infect.", 
-#                        "transmission type", 
-#                        "adaptation pathway", "adaptive benefit", 
-#                        "dominance", "trait SD", "adaptive cost")
-# 
-# RF_imp <- RF_imp %>% arrange(desc(`imprt`))
-# RF_plt <- ggplot(data = RF_imp, aes(`imprt`, reorder(neat_names, `imprt`))) +
-#   geom_linerange(aes(xmin = 0, xmax = `imprt`)) +
-#   geom_point(aes(col = typ), size = 3) + # alt: aes(size = log(IncNodePurity))
-#   labs(x = "", y = NULL, col = "parameter\ntype:") +
-#   scale_color_manual(values = c("#ac1457", "#DB6341", "#f1c4a2", "black"),
-#                      breaks = c("adaptation", "force of disease", "disease ecology", "background"),
-#                      labels = c("adaptation", "force\nof disease", "disease\necology", "background")) +
-#   theme_bw() +
-#   theme(text = element_text(size = 12),
-#         legend.text = element_text(size = 12),
-#         legend.title = element_text(size = 12),
-#         legend.position = "bottom")
-# 
-# # plot the different outcomes
-# RF_dist <- RF_class; RF_dist$clss_lvl <- factor(RF_dist$clss, levels = c("Ext", "ER", "IL", "NR", "UNK"))
-# RF_dist_plt <- ggplot(data = RF_dist, aes(clss_lvl, fill = clss_lvl)) + geom_bar(col = "black") + 
-#   labs(x = "simulation outcome", y = "count", fill = NULL) + 
-#   scale_fill_manual(values = c("black", "#ac1457", "#DB6341", "#f1c4a2", "white")) + 
-#   theme_bw() + 
-#   theme(text = element_text(size = 12), 
-#         legend.position = "none") 
-
 # alternatively, try distributed random forest, which deals with the fact that the outcome is a distribution not a category
 # make outcome matrix
 # get probabilities
@@ -281,13 +203,7 @@ imp <- vimp(clss_mv, importance ="permute") # this repeats variable calc from ab
 # ho_imp <- holdout.vimp(cbind(p_ex, p_er, p_il, p_nr, p_uk) ~ ., data = tmp_df)
 # also plot.variable -- basically partials for p_er in this case at least
 # plot.variable(clss_mv, m.target = "p_er") 
-
-# plotting decision tree....
-my_tr <- get.tree(clss_mv, tree.id = 1:500, ensemble = T)
-plot(my_tr)
-
-# looking at a tree -- not really helpful???
-# get.tree(clss_mv, ensemble = T, node.depth = 5)
+saveRDS(clss_mv, "sens/rf_output.Rdata")
 
 # try predicting a few rows of fig1B, to check out how off base things are
 # merge data w/original cases
@@ -406,14 +322,15 @@ pred_check <- apply(pred_results_str[, 2:6], 1, sum); range(pred_check)
 pred_dat <- merge(pred_results_str, cases, by.x = c("parm_number"), by.y = "number")
 
 # pivot longer for both
-pred_dat$shp <- rep("predicted")
-plot_dat$shp <- rep("simulated")
+pred_dat$shp <- rep("RF predicted")
+plot_dat$shp <- rep("full sim.")
 plot_long <- pivot_longer(plot_dat, cols = 2:5, names_to = "outcome", values_to = "value")
 pred_long <- pivot_longer(pred_dat[, c(1:5, 7:10)], cols = 2:5, names_to = "outcome", values_to = "value") # ignore unks
 dat_long <- rbind(plot_long, pred_long)
 
 # rename
-dat_long$compartments <- recode(dat_long$compartments, "1" = "SIX", "2" = "SIS", "3" = "SIR")
+dat_long$compartments <- recode(dat_long$compartments, "1" = "mortality", "2" = "recovery", "3" = "immunity")
+dat_long$compartments <- factor(dat_long$compartments, levels = c("mortality", "recovery", "immunity"))
 dat_long$`transmission type` <- recode(dat_long$`transmission type`, "1" = "density", "2" = "environmental", "3" = "density + environmental")
 dat_long$robustness <- recode(dat_long$robustness, "1" = "MB", "2" = "TB", "3" = "RA", "4" = "N")
 dat_long$`evolutionary pathway` <- factor(dat_long$robustness, levels = c("N", "TB", "MB", "RA"))
@@ -424,6 +341,10 @@ comp_sim_pred <- ggplot(dat_long %>% filter(`evolutionary pathway` != "N"), aes(
   coord_cartesian(ylim = c(0, NA)) +
   geom_point(size = 2) + scale_color_manual(values = c("#ac1457", "#f1c4a2")) +
   facet_grid(rows = vars(outcome_f), cols = vars(compartments)) + 
-  labs(x = "Adaptive pathway", y = "Probability", col = "Transmission type") + 
+  labs(x = "Adaptive pathway", y = "Probability", col = "Transmission type", pch = "Calc. source") + 
   theme_bw()  + 
   theme(text = element_text(size = 11), legend.position = "bottom") 
+
+png("figs/figure_plot/SUPP_rfcomp_1106.png",height=170,width=170,res=400,units='mm')
+print(comp_sim_pred)
+dev.off()
