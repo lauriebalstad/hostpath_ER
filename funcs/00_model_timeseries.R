@@ -3,23 +3,23 @@ library(parallel)
 library(foreach)
 library(doParallel)
 
-ts_data <- function(parm_vect, ngens) { # pop size and gen time info
+ts_data <- function(parm_vect) { # pop size and gen time info
   
   # note this takes in a compartment structure SIS, SIX, SIR 
   # second takes in an order: events order (e1, e2, e3) (B,M,R)
   # and then all the parameters
   comp_str <- parm_vect[1]; event_order <- parm_vect[2]
-  f_RR <- parm_vect[3]; f_WR <- parm_vect[4]; f_WW <- parm_vect[5]; f_sd <- parm_vect[6] # enviro transmission -- can be negative (only density)
+  f_RR <- parm_vect[3]; f_WR <- parm_vect[4]; f_WW <- parm_vect[5]; f_sd <- parm_vect[6] # structural
   # d_0 <- floor(parm_vect[4]/parm_vect[29]); r_0 <- parm_vect[5] # disease intro and init allele freq.
-  b_RR <- parm_vect[7]; b_WR <- parm_vect[8]; b_WW <- parm_vect[9]; b_sd <- parm_vect[10] # density dep transmission -- can be negative (only enviro)
+  b_RR <- parm_vect[7]; b_WR <- parm_vect[8]; b_WW <- parm_vect[9]; b_sd <- parm_vect[10] # transmission
   m_SRR <- parm_vect[11]; m_SWR <- parm_vect[12]; m_SWW <- parm_vect[13]; m_IRR <- parm_vect[14]; m_IWR <- parm_vect[15]; m_IWW <- parm_vect[16]; m_Ssd <- parm_vect[17]; m_Isd <- parm_vect[18] # mortality
   r_RR <- parm_vect[19]; r_WR <- parm_vect[20]; r_WW <- parm_vect[21]; r_sd <- parm_vect[22] # recovery
-  l_RR <- parm_vect[23]; l_WR <- parm_vect[24]; l_WW  <- parm_vect[25]; l_sd <- parm_vect[26]; mut_rate <- parm_vect[27] # reproduction
-  K <- parm_vect[28]; K_sd <- parm_vect[29] # carrying capacity
-  N <- parm_vect[28] # number of individuals at start of simulation, all WW -- start at K
-  d_0 <- floor(parm_vect[30]/parm_vect[31]); disease_cycles <- parm_vect[31] # number of times to go through disease between reproduction cycles
-  r_0 <- parm_vect[32]; inf_0 <- parm_vect[33]
-  
+  l_RR <- parm_vect[23]; l_WR <- parm_vect[24]; l_WW  <- parm_vect[25]; l_sd <- parm_vect[26]; mut_rate <- parm_vect[26] # reproduction
+  K <- parm_vect[27]; K_sd <- parm_vect[28] # carrying capacity
+  N <- parm_vect[27] # number of individuals at start of simulation, all WW -- start at K
+  d_0 <- floor(parm_vect[29]/parm_vect[30]); disease_cycles <- parm_vect[30]; ngens <- parm_vect[33]/parm_vect[30] # number of times to go through disease between reproduction cycles, timing things
+  r_0 <- parm_vect[31]; prop_I <- parm_vect[32] # initial R and inital disease force things
+
   # get compartmetns
   if(comp_str == 1) compartments <- c("SIX")
   if(comp_str == 2) compartments <- c("SIS")
@@ -119,7 +119,7 @@ ts_data <- function(parm_vect, ngens) { # pop size and gen time info
     inds$p_survS <- exp(-inds$mS_pheno)
     # coin flips
     inds$mortalityS <- vapply(inds$p_survS, function(x) rbinom(1, 1, x), as.integer(1L))
-    # get mortality phenotype: infects
+    # get mortality phenotype: infects -- note no Is bc pre disease
     inds <- inds %>% filter(inf_stat == "S" | inf_stat == "R") %>% filter(mortalityS==1)
     inds <- inds[, 1:8] # remove extra columns
     
@@ -134,53 +134,37 @@ ts_data <- function(parm_vect, ngens) { # pop size and gen time info
       break # stop generation loop
     }
     
-    # and then reproduce
-    # how many gametes 
-    if (dim(inds)[1] == 0) {
-      # print(c(i, "everyone dead after disease dynamics"))
-      extinct_dummy <- TRUE # pop is extinct
-      S_size <- c(S_size, 0) # no Ss
-      I_size <- c(I_size, 0) # no Is
-      R_size <- c(R_size, 0) # no Rs
-      K_size <- c(K_size, K_stoch) # carrying capacity
-      r_allele <- c(r_allele, 0) # no R allele currently
-      break # stop generation loop
-    }
-    
     # survivors reproduce if there is someone around
     if (dim(inds)[1] > 0) {
-      # print(c(i, "dim(inds) > 0"))
-      parent_lams <- paste0("l_",inds$ind_geno,sep="")
-      rep_rate <- NULL
-      for (P in 1:length(parent_lams)) {
-        lam_val=ifelse(parent_lams[P]=="l_RR", l_RR, ifelse(parent_lams[P]=="l_WR", l_WR, l_WW))
-        rep_rate <- c(rep_rate, floor(rnorm(1, lam_val, l_sd)))
-      }
-      rep_rate[which(rep_rate < 0)] = 0
+      
       gamts <- NULL
-      for (m in 1:length(parent_lams)) {
-        # get gametes from parent
-        gamts_temp1 <- if (inds$ind_geno[m]=="RR") {rep("R", 2*rep_rate[m])}
-        gamts_temp2 <- if (inds$ind_geno[m]=="WW") {rep("W", 2*rep_rate[m])}
-        # WRs will need to have coin flip if odd rep_rate
-        gamts_temp3 <- if (inds$ind_geno[m]=="WR" & rep_rate[m]%%2==0) {c(rep("W", rep_rate[m]/2), rep("R", rep_rate[m]/2))}
-        gamts_temp4 <- if (inds$ind_geno[m]=="WR" & rep_rate[m]%%2==1) {c(rep("W", (rep_rate[m]-1)/2), rep("R", (rep_rate[m]-1)/2), sample(c("W","R"), 1))}
+      for (m in 1:dim(inds)[1]) {
+        # get gametes from parent--use l_RR as the mean offspring, so draw 2*l_RR as number of gametes produced, etc.
+        gamts_temp1 <- if (inds$ind_geno[m]=="RR") {rep("R", rpois(1, 2*l_RR))}
+        gamts_temp2 <- if (inds$ind_geno[m]=="WW") {rep("W", rpois(1, 2*l_WW))}
+        # WRs will need to have coin flip if odd rep_rate, determine ahead of time
+        l_WR_gamts <- rpois(1, 2*l_WR)
+        gamts_temp3 <- if (inds$ind_geno[m]=="WR" & l_WR_gamts%%2==0) {c(rep("W", l_WR_gamts/2), rep("R", l_WR_gamts/2))}
+        gamts_temp4 <- if (inds$ind_geno[m]=="WR" & l_WR_gamts%%2==1) {c(rep("W", (l_WR_gamts-1)/2), rep("R", (l_WR_gamts-1)/2), sample(c("W","R"), 1))}
         gamts <- c(gamts, gamts_temp1, gamts_temp2, gamts_temp3, gamts_temp4)
       }
-      off_dat <- NULL
       
+      off_dat <- NULL
       # if there are 2+ gametes, create offspring
-      # add some mutation
       if (length(gamts) > 1 & K_stoch-length(inds$ind_num) > 0) {
-        # draw them, limiting by stochastic K
+        
+        # draw them randomly, limiting by stochastic K (note 2*K bc diploid)
         off_gamts <- sample(gamts, 
                             min(length(gamts), (K_stoch-length(inds$ind_num))*2), 
                             replace=FALSE)
         # only take even number: if odd length, drop the last one
         if (length(off_gamts)%%2==1) off_gamts <- off_gamts[1:length(off_gamts)-1]
+        
+        # add some mutation
         # mutate some
         muts <- rbinom(length(off_gamts), 1, mut_rate) # 1 = does mutate
         off_gamts[which(muts==1)] <- ifelse(off_gamts[which(muts==1)] == "W", "R", "W")
+        
         # grab pairs
         off_genos <- NULL
         for (n in 1:(length(off_gamts)/2)) {
@@ -237,9 +221,6 @@ ts_data <- function(parm_vect, ngens) { # pop size and gen time info
       if (is.null(dim(off_dat))) off_dat <- NULL
     }
     
-    # dim(inds)
-    # dim(off_dat)
-    
     # combine parents and offspring
     inds <- rbind(inds[,1:8], off_dat)
     
@@ -259,7 +240,7 @@ ts_data <- function(parm_vect, ngens) { # pop size and gen time info
   }
   
   # change individual(s) to I
-  inf_inds <- max(1, floor(inf_0*dim(inds)[1])) # at least 1 individual, or ~10% of individuals
+  inf_inds <- max(1, floor(prop_I*dim(inds)[1])) # at least 1 individual, or ~10% of individuals
   inds$inf_stat[sample(1:length(inds$ind_num), inf_inds, replace = F)] <- "I"
   
   for (i in 1:ngens) {
@@ -318,7 +299,7 @@ ts_data <- function(parm_vect, ngens) { # pop size and gen time info
         if (events[j]=="B") {
           # get transmission phenotype
           # if(trans_form == "density") 
-          {inds$p_transmit <- 1-exp(-inds$f_pheno-inds$b_pheno*length(which(inds$inf_stat=="I")))}
+          {inds$p_transmit <- 1-exp(-inds$f_pheno-(inds$b_pheno*length(which(inds$inf_stat=="I"))))}
           # if(trans_form == "freq") {inds$p_transmit <- 1-exp(-inds$b_pheno)}
           # coin flips
           inds$change_stat <- vapply(inds$p_transmit, function(x) rbinom(1, 1, x), as.integer(1L))
@@ -376,38 +357,35 @@ ts_data <- function(parm_vect, ngens) { # pop size and gen time info
     
     # survivors reproduce if there is someone around
     if (dim(inds)[1] > 0) {
-      # print(c(i, "dim(inds) > 0"))
-      parent_lams <- paste0("l_",inds$ind_geno,sep="")
-      rep_rate <- NULL
-      for (P in 1:length(parent_lams)) {
-        lam_val=ifelse(parent_lams[P]=="l_RR", l_RR, ifelse(parent_lams[P]=="l_WR", l_WR, l_WW))
-        rep_rate <- c(rep_rate, floor(rnorm(1, lam_val, l_sd)))
-      }
-      rep_rate[which(rep_rate < 0)] = 0
+      
       gamts <- NULL
-      for (m in 1:length(parent_lams)) {
-        # get gametes from parent
-        gamts_temp1 <- if (inds$ind_geno[m]=="RR") {rep("R", 2*rep_rate[m])}
-        gamts_temp2 <- if (inds$ind_geno[m]=="WW") {rep("W", 2*rep_rate[m])}
-        # WRs will need to have coin flip if odd rep_rate
-        gamts_temp3 <- if (inds$ind_geno[m]=="WR" & rep_rate[m]%%2==0) {c(rep("W", rep_rate[m]/2), rep("R", rep_rate[m]/2))}
-        gamts_temp4 <- if (inds$ind_geno[m]=="WR" & rep_rate[m]%%2==1) {c(rep("W", (rep_rate[m]-1)/2), rep("R", (rep_rate[m]-1)/2), sample(c("W","R"), 1))}
+      for (m in 1:dim(inds)[1]) {
+        # get gametes from parent--use l_RR as the mean offspring, so draw 2*l_RR as number of gametes produced, etc.
+        gamts_temp1 <- if (inds$ind_geno[m]=="RR") {rep("R", rpois(1, 2*l_RR))}
+        gamts_temp2 <- if (inds$ind_geno[m]=="WW") {rep("W", rpois(1, 2*l_WW))}
+        # WRs will need to have coin flip if odd rep_rate, determine ahead of time
+        l_WR_gamts <- rpois(1, 2*l_WR)
+        gamts_temp3 <- if (inds$ind_geno[m]=="WR" & l_WR_gamts%%2==0) {c(rep("W", l_WR_gamts/2), rep("R", l_WR_gamts/2))}
+        gamts_temp4 <- if (inds$ind_geno[m]=="WR" & l_WR_gamts%%2==1) {c(rep("W", (l_WR_gamts-1)/2), rep("R", (l_WR_gamts-1)/2), sample(c("W","R"), 1))}
         gamts <- c(gamts, gamts_temp1, gamts_temp2, gamts_temp3, gamts_temp4)
       }
-      off_dat <- NULL
       
+      off_dat <- NULL
       # if there are 2+ gametes, create offspring
-      # add some mutation
       if (length(gamts) > 1 & K_stoch-length(inds$ind_num) > 0) {
-        # draw them, limiting by stochastic K
+        
+        # draw them randomly, limiting by stochastic K (note 2*K bc diploid)
         off_gamts <- sample(gamts, 
                             min(length(gamts), (K_stoch-length(inds$ind_num))*2), 
                             replace=FALSE)
         # only take even number: if odd length, drop the last one
         if (length(off_gamts)%%2==1) off_gamts <- off_gamts[1:length(off_gamts)-1]
+        
+        # add some mutation
         # mutate some
         muts <- rbinom(length(off_gamts), 1, mut_rate) # 1 = does mutate
         off_gamts[which(muts==1)] <- ifelse(off_gamts[which(muts==1)] == "W", "R", "W")
+        
         # grab pairs
         off_genos <- NULL
         for (n in 1:(length(off_gamts)/2)) {
@@ -463,9 +441,6 @@ ts_data <- function(parm_vect, ngens) { # pop size and gen time info
       
       if (is.null(dim(off_dat))) off_dat <- NULL
     }
-    
-    # dim(inds)
-    # dim(off_dat)
     
     # combine parents and offspring
     inds <- rbind(inds[,1:8], off_dat)

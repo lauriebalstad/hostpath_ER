@@ -12,19 +12,19 @@ cluster_run <- function(parm_vect) { # pop size and gen time info
   
   # note this takes in a compartment structure SIS, SIX, SIR 
   # second takes in an order: events order (e1, e2, e3) (B,M,R)
-  # and then all the parameters
+  # and then all the parameters -- NOTE, l_sd will go
   comp_str <- parm_vect[1]; event_order <- parm_vect[2]
   f_RR <- parm_vect[3]; f_WR <- parm_vect[4]; f_WW <- parm_vect[5]; f_sd <- parm_vect[6] # structural
   # d_0 <- floor(parm_vect[4]/parm_vect[29]); r_0 <- parm_vect[5] # disease intro and init allele freq.
   b_RR <- parm_vect[7]; b_WR <- parm_vect[8]; b_WW <- parm_vect[9]; b_sd <- parm_vect[10] # transmission
   m_SRR <- parm_vect[11]; m_SWR <- parm_vect[12]; m_SWW <- parm_vect[13]; m_IRR <- parm_vect[14]; m_IWR <- parm_vect[15]; m_IWW <- parm_vect[16]; m_Ssd <- parm_vect[17]; m_Isd <- parm_vect[18] # mortality
   r_RR <- parm_vect[19]; r_WR <- parm_vect[20]; r_WW <- parm_vect[21]; r_sd <- parm_vect[22] # recovery
-  l_RR <- parm_vect[23]; l_WR <- parm_vect[24]; l_WW  <- parm_vect[25]; l_sd <- parm_vect[26]; mut_rate <- parm_vect[27] # reproduction
-  K <- parm_vect[28]; K_sd <- parm_vect[29] # carrying capacity
-  N <- parm_vect[28] # number of individuals at start of simulation, all WW -- start at K
-  d_0 <- floor(parm_vect[30]/parm_vect[31]); disease_cycles <- parm_vect[31]; ngens <- parm_vect[34]/parm_vect[31] # number of times to go through disease between reproduction cycles, timing things
-  r_0 <- parm_vect[32]; prop_I <- parm_vect[33] # initial R and inital disease force things
-  t_num <- parm_vect[35]
+  l_RR <- parm_vect[23]; l_WR <- parm_vect[24]; l_WW  <- parm_vect[25]; mut_rate <- parm_vect[26] # reproduction
+  K <- parm_vect[27]; K_sd <- parm_vect[28] # carrying capacity
+  N <- parm_vect[27] # number of individuals at start of simulation, all WW -- start at K
+  d_0 <- floor(parm_vect[29]/parm_vect[30]); disease_cycles <- parm_vect[30]; ngens <- parm_vect[33]/parm_vect[30] # number of times to go through disease between reproduction cycles, timing things
+  r_0 <- parm_vect[31]; prop_I <- parm_vect[32] # initial R and inital disease force things
+  t_num <- parm_vect[34]
   
   # get compartmetns
   if(comp_str == 1) compartments <- c("SIX")
@@ -136,53 +136,37 @@ cluster_run <- function(parm_vect) { # pop size and gen time info
       break # stop generation loop
     }
     
-    # and then reproduce
-    # how many gametes 
-    if (dim(inds)[1] == 0) {
-      # print(c(i, "everyone dead after disease dynamics"))
-      extinct_dummy <- TRUE # pop is extinct
-      S_size <- c(S_size, 0) # no Ss
-      I_size <- c(I_size, 0) # no Is
-      R_size <- c(R_size, 0) # no Rs
-      K_size <- c(K_size, K_stoch) # carrying capacity
-      r_allele <- c(r_allele, 0) # no R allele currently
-      break # stop generation loop
-    }
-    
     # survivors reproduce if there is someone around
     if (dim(inds)[1] > 0) {
-      # print(c(i, "dim(inds) > 0"))
-      parent_lams <- paste0("l_",inds$ind_geno,sep="")
-      rep_rate <- NULL
-      for (P in 1:length(parent_lams)) {
-        lam_val=ifelse(parent_lams[P]=="l_RR", l_RR, ifelse(parent_lams[P]=="l_WR", l_WR, l_WW))
-        rep_rate <- c(rep_rate, floor(rnorm(1, lam_val, l_sd)))
-      }
-      rep_rate[which(rep_rate < 0)] = 0
+      
       gamts <- NULL
-      for (m in 1:length(parent_lams)) {
-        # get gametes from parent
-        gamts_temp1 <- if (inds$ind_geno[m]=="RR") {rep("R", 2*rep_rate[m])}
-        gamts_temp2 <- if (inds$ind_geno[m]=="WW") {rep("W", 2*rep_rate[m])}
-        # WRs will need to have coin flip if odd rep_rate
-        gamts_temp3 <- if (inds$ind_geno[m]=="WR" & rep_rate[m]%%2==0) {c(rep("W", rep_rate[m]/2), rep("R", rep_rate[m]/2))}
-        gamts_temp4 <- if (inds$ind_geno[m]=="WR" & rep_rate[m]%%2==1) {c(rep("W", (rep_rate[m]-1)/2), rep("R", (rep_rate[m]-1)/2), sample(c("W","R"), 1))}
+      for (m in 1:dim(inds)[1]) {
+        # get gametes from parent--use l_RR as the mean offspring, so draw 2*l_RR as number of gametes produced, etc.
+        gamts_temp1 <- if (inds$ind_geno[m]=="RR") {rep("R", rpois(1, 2*l_RR))}
+        gamts_temp2 <- if (inds$ind_geno[m]=="WW") {rep("W", rpois(1, 2*l_WW))}
+        # WRs will need to have coin flip if odd rep_rate, determine ahead of time
+        l_WR_gamts <- rpois(1, 2*l_WR)
+        gamts_temp3 <- if (inds$ind_geno[m]=="WR" & l_WR_gamts%%2==0) {c(rep("W", l_WR_gamts/2), rep("R", l_WR_gamts/2))}
+        gamts_temp4 <- if (inds$ind_geno[m]=="WR" & l_WR_gamts%%2==1) {c(rep("W", (l_WR_gamts-1)/2), rep("R", (l_WR_gamts-1)/2), sample(c("W","R"), 1))}
         gamts <- c(gamts, gamts_temp1, gamts_temp2, gamts_temp3, gamts_temp4)
       }
-      off_dat <- NULL
       
+      off_dat <- NULL
       # if there are 2+ gametes, create offspring
-      # add some mutation
       if (length(gamts) > 1 & K_stoch-length(inds$ind_num) > 0) {
-        # draw them, limiting by stochastic K
+        
+        # draw them randomly, limiting by stochastic K (note 2*K bc diploid)
         off_gamts <- sample(gamts, 
                             min(length(gamts), (K_stoch-length(inds$ind_num))*2), 
                             replace=FALSE)
         # only take even number: if odd length, drop the last one
         if (length(off_gamts)%%2==1) off_gamts <- off_gamts[1:length(off_gamts)-1]
+        
+        # add some mutation
         # mutate some
         muts <- rbinom(length(off_gamts), 1, mut_rate) # 1 = does mutate
         off_gamts[which(muts==1)] <- ifelse(off_gamts[which(muts==1)] == "W", "R", "W")
+        
         # grab pairs
         off_genos <- NULL
         for (n in 1:(length(off_gamts)/2)) {
@@ -238,9 +222,6 @@ cluster_run <- function(parm_vect) { # pop size and gen time info
       
       if (is.null(dim(off_dat))) off_dat <- NULL
     }
-    
-    # dim(inds)
-    # dim(off_dat)
     
     # combine parents and offspring
     inds <- rbind(inds[,1:8], off_dat)
@@ -378,38 +359,35 @@ cluster_run <- function(parm_vect) { # pop size and gen time info
     
     # survivors reproduce if there is someone around
     if (dim(inds)[1] > 0) {
-      # print(c(i, "dim(inds) > 0"))
-      parent_lams <- paste0("l_",inds$ind_geno,sep="")
-      rep_rate <- NULL
-      for (P in 1:length(parent_lams)) {
-        lam_val=ifelse(parent_lams[P]=="l_RR", l_RR, ifelse(parent_lams[P]=="l_WR", l_WR, l_WW))
-        rep_rate <- c(rep_rate, floor(rnorm(1, lam_val, l_sd)))
-      }
-      rep_rate[which(rep_rate < 0)] = 0
+      
       gamts <- NULL
-      for (m in 1:length(parent_lams)) {
-        # get gametes from parent
-        gamts_temp1 <- if (inds$ind_geno[m]=="RR") {rep("R", 2*rep_rate[m])}
-        gamts_temp2 <- if (inds$ind_geno[m]=="WW") {rep("W", 2*rep_rate[m])}
-        # WRs will need to have coin flip if odd rep_rate
-        gamts_temp3 <- if (inds$ind_geno[m]=="WR" & rep_rate[m]%%2==0) {c(rep("W", rep_rate[m]/2), rep("R", rep_rate[m]/2))}
-        gamts_temp4 <- if (inds$ind_geno[m]=="WR" & rep_rate[m]%%2==1) {c(rep("W", (rep_rate[m]-1)/2), rep("R", (rep_rate[m]-1)/2), sample(c("W","R"), 1))}
+      for (m in 1:dim(inds)[1]) {
+        # get gametes from parent--use l_RR as the mean offspring, so draw 2*l_RR as number of gametes produced, etc.
+        gamts_temp1 <- if (inds$ind_geno[m]=="RR") {rep("R", rpois(1, 2*l_RR))}
+        gamts_temp2 <- if (inds$ind_geno[m]=="WW") {rep("W", rpois(1, 2*l_WW))}
+        # WRs will need to have coin flip if odd rep_rate, determine ahead of time
+        l_WR_gamts <- rpois(1, 2*l_WR)
+        gamts_temp3 <- if (inds$ind_geno[m]=="WR" & l_WR_gamts%%2==0) {c(rep("W", l_WR_gamts/2), rep("R", l_WR_gamts/2))}
+        gamts_temp4 <- if (inds$ind_geno[m]=="WR" & l_WR_gamts%%2==1) {c(rep("W", (l_WR_gamts-1)/2), rep("R", (l_WR_gamts-1)/2), sample(c("W","R"), 1))}
         gamts <- c(gamts, gamts_temp1, gamts_temp2, gamts_temp3, gamts_temp4)
       }
-      off_dat <- NULL
       
+      off_dat <- NULL
       # if there are 2+ gametes, create offspring
-      # add some mutation
       if (length(gamts) > 1 & K_stoch-length(inds$ind_num) > 0) {
-        # draw them, limiting by stochastic K
+        
+        # draw them randomly, limiting by stochastic K (note 2*K bc diploid)
         off_gamts <- sample(gamts, 
                             min(length(gamts), (K_stoch-length(inds$ind_num))*2), 
                             replace=FALSE)
         # only take even number: if odd length, drop the last one
         if (length(off_gamts)%%2==1) off_gamts <- off_gamts[1:length(off_gamts)-1]
+        
+        # add some mutation
         # mutate some
         muts <- rbinom(length(off_gamts), 1, mut_rate) # 1 = does mutate
         off_gamts[which(muts==1)] <- ifelse(off_gamts[which(muts==1)] == "W", "R", "W")
+        
         # grab pairs
         off_genos <- NULL
         for (n in 1:(length(off_gamts)/2)) {
@@ -484,41 +462,51 @@ cluster_run <- function(parm_vect) { # pop size and gen time info
     
   }
   
+  tot_size <- S_size + I_size + R_size
+  
   output_dat <- c(# things to decide if ER occured
     extinct <- extinct_dummy, # did the population go extinct? T/F
-    pop_drop20 <- any(S_size[(d_0):length(S_size)]+I_size[(d_0):length(I_size)]+R_size[(d_0):length(I_size)] < K_size[(d_0):length(I_size)]*0.20), # did the population drop? T/F
-    pop_drop50 <- any(S_size[(d_0):length(S_size)]+I_size[(d_0):length(I_size)]+R_size[(d_0):length(I_size)] < K_size[(d_0):length(I_size)]*0.50), # did the population drop? T/F
-    pop_drop80 <- any(S_size[(d_0):length(S_size)]+I_size[(d_0):length(I_size)]+R_size[(d_0):length(I_size)] < K_size[(d_0):length(I_size)]*0.80), # did the population drop? T/F
-    r_allele_peak15 <- any(r_allele[(d_0):length(S_size)] > 0.15), # did the allele spread at any point?
-    r_allele_peak45 <- any(r_allele[(d_0):length(S_size)] > 0.45), # did the allele spread at any point?
-    r_allele_peak75 <- any(r_allele[(d_0):length(S_size)] > 0.75), # did the allele spread at any point?
+    pop_drop20 <- any(tot_size[(d_0):length(tot_size)] < K_size[(d_0):length(tot_size)]*0.20, na.rm = T), # did the population drop? T/F
+    pop_drop50 <- any(tot_size[(d_0):length(tot_size)] < K_size[(d_0):length(tot_size)]*0.50, na.rm = T), # did the population drop? T/F
+    # pop_drop80 <- any(tot_size[(d_0):length(tot_size)] < K_size[(d_0):length(tot_size)]*0.80, na.rm = T), # did the population drop? T/F
+    # r_allele_peak15 <- any(r_allele[(d_0):length(tot_size)] > 0.15, na.rm = T), # did the allele spread at any point? note if all F and NA, will return NA --> treat as F
+    r_allele_peak45 <- any(r_allele[(d_0):length(tot_size)] > 0.45, na.rm = T), # did the allele spread at any point?
+    r_allele_peak75 <- any(r_allele[(d_0):length(tot_size)] > 0.75, na.rm = T), # did the allele spread at any point?
     # pop gen outcomes
     final_r_allele <- mean(tail(r_allele, 15), na.rm = TRUE), # average r allele frequency by end of simulation
-    final_pop_size <- mean(tail(S_size+I_size+R_size, 15), na.rm = TRUE),
+    final_pop_size <- mean(tail(tot_size, 15), na.rm = TRUE),
     # disease outcomes
-    final_inf_prev <- mean(tail(I_size/(S_size+I_size+R_size), 15), na.rm = TRUE), # helps determine if I was lost
+    final_inf_prev <- mean(tail(I_size/(tot_size), 15), na.rm = TRUE), # helps determine if I was lost
     # get the extremes
     max_r_allele <- max(r_allele[d_0:length(r_allele)], na.rm = TRUE), # only consider post-disease hits
-    time_max_r_allele <- which(r_allele==max(r_allele))[1],
-    max_inf_prev <- max(I_size/(S_size+I_size+R_size), na.rm = TRUE),
-    time_last_zero_inf <- sum(c(d_0,  which(I_size[d_0+1:length(I_size)]/(S_size[d_0+1:length(S_size)]+I_size[d_0+1:length(I_size)]+R_size[d_0+1:length(I_size)])==0)[1]), na.rm = T), # only care about post-disease
-    min_pop <- min(S_size[(d_0):length(S_size)]+I_size[(d_0):length(I_size)]+R_size[(d_0):length(I_size)], na.rm = TRUE), # only care about post-disease min size
-    time_min_pop <- which(S_size+I_size+R_size == min_pop)[1], # time that min pop was hit
+    # time_max_r_allele <- which(r_allele==max(r_allele, na.rm = T))[1],
+    max_inf_prev <- max(I_size/(tot_size), na.rm = TRUE),
+    time_last_zero_inf <- sum(c(d_0,  which(I_size[d_0+1:length(I_size)]/(tot_size[d_0+1:length(tot_size)])==0)[1]), na.rm = T), # only care about post-disease
+    min_pop <- min(tot_size[(d_0):length(tot_size)], na.rm = TRUE), # only care about post-disease min size
+    time_min_pop <- which(tot_size == min_pop)[1], # time that min pop was hit
     # how long in population drop
-    first_pop_drop20 <- which(S_size[(d_0):length(S_size)]+I_size[(d_0):length(I_size)]+R_size[(d_0):length(I_size)] < K_size[(d_0):length(I_size)]*0.20)[1], # first time the population dropped
-    first_pop_drop50 <- which(S_size[(d_0):length(S_size)]+I_size[(d_0):length(I_size)]+R_size[(d_0):length(I_size)] < K_size[(d_0):length(I_size)]*0.50)[1], # first time the population dropped
-    first_pop_drop80 <- which(S_size[(d_0):length(S_size)]+I_size[(d_0):length(I_size)]+R_size[(d_0):length(I_size)] < K_size[(d_0):length(I_size)]*0.80)[1], # first time the population dropped
-    last_pop_drop20 <- which(S_size[(d_0):length(S_size)]+I_size[(d_0):length(I_size)]+R_size[(d_0):length(I_size)] < K_size[(d_0):length(I_size)]*0.20)[length(which(S_size[(d_0):length(S_size)]+I_size[(d_0):length(I_size)]+R_size[(d_0):length(I_size)] < K_size[(d_0):length(I_size)]*0.20))], # last time the population dropped
-    last_pop_drop50 <- which(S_size[(d_0):length(S_size)]+I_size[(d_0):length(I_size)]+R_size[(d_0):length(I_size)] < K_size[(d_0):length(I_size)]*0.50)[length(which(S_size[(d_0):length(S_size)]+I_size[(d_0):length(I_size)]+R_size[(d_0):length(I_size)] < K_size[(d_0):length(I_size)]*0.50))], # last time the population dropped
-    last_pop_drop80 <- which(S_size[(d_0):length(S_size)]+I_size[(d_0):length(I_size)]+R_size[(d_0):length(I_size)] < K_size[(d_0):length(I_size)]*0.80)[length(which(S_size[(d_0):length(S_size)]+I_size[(d_0):length(I_size)]+R_size[(d_0):length(I_size)] < K_size[(d_0):length(I_size)]*0.80))], # last time the population dropped
-    total_pop_drop20 <- sum(S_size[(d_0):length(S_size)]+I_size[(d_0):length(I_size)]+R_size[(d_0):length(I_size)] < K_size[(d_0):length(I_size)]*0.20), # total time the population dropped
-    total_pop_drop50 <- sum(S_size[(d_0):length(S_size)]+I_size[(d_0):length(I_size)]+R_size[(d_0):length(I_size)] < K_size[(d_0):length(I_size)]*0.50), # total time the population dropped
-    total_pop_drop80 <- sum(S_size[(d_0):length(S_size)]+I_size[(d_0):length(I_size)]+R_size[(d_0):length(I_size)] < K_size[(d_0):length(I_size)]*0.80), # total time the population dropped
+    first_pop_drop20 <- which(tot_size[(d_0):length(tot_size)] < K_size[(d_0):length(K_size)]*0.20)[1], # first time the population dropped
+    first_pop_drop50 <- which(tot_size[(d_0):length(tot_size)] < K_size[(d_0):length(K_size)]*0.50)[1], # first time the population dropped
+    # first_pop_drop80 <- which(tot_size[(d_0):length(tot_size)] < K_size[(d_0):length(K_size)]*0.80)[1], # first time the population dropped
+    last_pop_drop20 <- ifelse(is.na(first_pop_drop20), 
+                              NA, 
+                              tail(which(tot_size[(d_0):length(tot_size)] < K_size[(d_0):length(K_size)]*0.20), 1)), # last time the population dropped
+    last_pop_drop50 <- ifelse(is.na(first_pop_drop50), 
+                              NA, 
+                              tail(which(tot_size[(d_0):length(tot_size)] < K_size[(d_0):length(K_size)]*0.50), 1)), # last time the population dropped
+    # last_pop_drop80 <- tail(which(tot_size[(d_0):length(tot_size)] < K_size[(d_0):length(K_size)]*0.80), 1), # last time the population dropped
+    total_pop_drop20 <- ifelse(is.na(first_pop_drop20), 
+                               NA, 
+                               sum(tot_size[(d_0):length(tot_size)] < K_size[(d_0):length(K_size)]*0.20, na.rm = T)), # total time the population dropped
+    total_pop_drop50 <- ifelse(is.na(first_pop_drop50), 
+                               NA, 
+                               sum(tot_size[(d_0):length(tot_size)] < K_size[(d_0):length(K_size)]*0.50, na.rm = T)), # total time the population dropped
+    # total_pop_drop80 <- sum(tot_size[(d_0):length(tot_size)] < K_size[(d_0):length(K_size)]*0.80, na.rm = T), # total time the population dropped
     # did recvoery happen AFTER min_pop?
-    at_K95 <- ifelse(extinct_dummy, FALSE, any(0.95*K_size[time_min_pop:length(K_size)]<=S_size[time_min_pop:length(S_size)]+I_size[time_min_pop:length(I_size)]+R_size[time_min_pop:length(R_size)])),  # did we get back up? note that if extinct, will use start of time series (not good!)
-    first_K95 <- time_min_pop + which(S_size[time_min_pop:length(S_size)]+I_size[time_min_pop:length(I_size)]+R_size[time_min_pop:length(R_size)]>=0.95*K_size[time_min_pop:length(K_size)])[1], 
+    at_K95 <- ifelse(extinct_dummy, FALSE, any(0.95*K_size[time_min_pop:length(K_size)]<=tot_size[time_min_pop:length(tot_size)])),  # did we get back up? note that if extinct, will use start of time series (not good!)
+    first_K95 <- time_min_pop + which(tot_size[time_min_pop:length(tot_size)]>=0.95*K_size[time_min_pop:length(K_size)])[1], 
     # some initial metrics re: mutation-selection
-    r_ts_d0 <- r_allele[d_0],
+    # r_ts_d0 <- r_allele[d_0],
     trial_num <- t_num
   )
   

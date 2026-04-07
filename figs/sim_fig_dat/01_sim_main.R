@@ -12,37 +12,30 @@ base_vect <- c(2, 4, # SIS, BGM -- can comp with 4 for MBG
                1, 1, 1, # 14-16 + 18 disease mort
                0.05, 0.05, # 17-18 mort sd
                0.05, 0.05, 0.05, 0.05, # 19-22 recovery, unused bc SIX (1)
-               1.9, 2, 2.1, 0.05, 0.005, # 23-27 reproduction & mutation
-               # 1.7, 1.9, 2.1, 0.05, 0.005, # 23-27 reproduction & mutation
+               0.5, 0.75, 1, 0.005, # 23-27 reproduction & mutation
+               # 0.6, 0.8, 1, 0.05, 0.005, # 23-27 reproduction & mutation
                100, 4, # 28-29 carrying capacity things
-               120, 4, # 30-32 timing things # note change from d = 1 to d = 2???
-               0.1, 0.1, 160) # init R and init disease, ngens
+               120, 3, # 30-32 timing things # note change from d = 1 to d = 2???
+               0.05, 0.1, 160) # init R and init disease, ngens
 
 #-----FIG2: COST/BENEFIT-----
 # comparing different cost/benefits
-# so.... fig 1 will be comparision of structure across base model
-trn_prop <- c(1, 0.5, 0.25, 0); trn_curr <- 1-exp(-1.25)
-trn_val <- -log(1-(trn_prop*trn_curr))
-sis_cb_A <- expand.grid("benefit" = trn_val, # for percent change in benefit: 0, 50, 75, 100
-                      "cost" = c(1.7, 1.9, 2.1), # 1.7 = some cost, 2.1 = no cost
+sis_cb_A <- expand.grid("benefit" = c(0, 0.25, 0.5, 1)*1.25, # for percent change in benefit: 0, 50, 75, 100
+                      "cost" = c(0.1, 0.5, 1), # 0.1 = some cost, 1 = no cost
                       "case" = c("\u03b2"), # tranmission
                       "compartments" = c(2))
-rec_prop <- c(1, 2, 6, 16); rec_curr <- 1-exp(-0.05)
-rec_val <- -log(1-(rec_prop*rec_curr))
-sis_cb_B <- expand.grid("benefit" = rec_val, # for percent change in benefit: 0, 100, 500, 1500
-                        "cost" = c(1.7, 1.9, 2.1), # 1.7 = some cost, 2.1 = no cost
+sis_cb_B <- expand.grid("benefit" = c(30, 10, 3, 1)*0.05, # for percent change in benefit: 0, 100, 500, 1500
+                        "cost" = c(0.1, 0.5, 1), # 0.1 = some cost, 1 = no cost
                         "case" = c("\u03d2"), # recovery
                         "compartments" = c(2))
-mort_prop <- c(1, 0.5, 0.25, 0); mort_curr <- 1-exp(-1) # probability of death
-mort_val <- -log(1-(mort_prop*mort_curr))
-sis_cb_C <- expand.grid("benefit" = mort_val, # for percent change in benefit: 0, 50, 75, 100
-                        "cost" = c(1.7, 1.9, 2.1), # 1.7 = some cost, 2.1 = no cost
+sis_cb_C <- expand.grid("benefit" = c(0, 0.25, 0.5, 1)*1, # for percent change in benefit: 0, 50, 75, 100
+                        "cost" = c(0.1, 0.5, 1), # 0.1 = some cost, 1 = no cost
                         "case" = c("\u03bc"), # mortality
                         "compartments" = c(2))
 sis_cb <- rbind(sis_cb_A, sis_cb_B, sis_cb_C)
 N <- dim(sis_cb)[1]
 sis_cb$number <- 1:N
-rep_num <- 2500 
+rep_num <- 2500
 rep_sis_cb <- matrix(rep(t(sis_cb), rep_num), ncol = ncol(sis_cb), byrow = T)
 rep_sis_cb <- as.data.frame(rep_sis_cb)
 colnames(rep_sis_cb) <- colnames(sis_cb)
@@ -50,7 +43,7 @@ colnames(rep_sis_cb) <- colnames(sis_cb)
 sim_results_cb <- mclapply(1:(N*rep_num), function(i){
 
   cb_vect <- base_vect
-  cb_vect[35] <- as.numeric(rep_sis_cb$`number`[i])
+  cb_vect[34] <- as.numeric(rep_sis_cb$`number`[i])
   cb_vect[1] <- as.numeric(rep_sis_cb$`compartment`[i]) # SIS or SIR
   cb_vect[7:9] <- c(1.25, 1.25, 1.25) # density depend only
   # benefit update
@@ -94,7 +87,7 @@ colnames(rep_cases) <- c("transmission type", "compartments", "robustness", "num
 sim_results_str <- mclapply(1:(N*rep_num), function(i){
   
   case_vect <- base_vect
-  case_vect[35] <- rep_cases$`number`[i]
+  case_vect[34] <- rep_cases$`number`[i]
   # set disease transmission
   if (rep_cases$`transmission type`[i]==1) {
     case_vect[7:9] <- 1.25 # transmission increased (dens)
@@ -111,7 +104,7 @@ sim_results_str <- mclapply(1:(N*rep_num), function(i){
     if (rep_cases$`transmission type`[i]==2) {case_vect[3:5] <- c(0, 1, 2)}
   } # 1 = transmission
   if (rep_cases$robustness[i] == 3) {
-    case_vect[19] <- 1.516
+    case_vect[19] <- 1.5
     case_vect[20] <- (case_vect[19]+case_vect[21])/2
   } # 1 = recovery, nb: recovery higher
   
@@ -127,14 +120,14 @@ saveRDS(sim_results_str, file = paste0("dat/str_fig_", format(Sys.time(), "%m%d"
 
 #-----FIG3: POP SIZES-----
 # comparing pop size/robustness/mutation rate
-sis_pop_mut <- expand.grid("population size" = c(50, 100, 500), 
+sis_pop_mut <- expand.grid("population size" = c(50, 100, 500),
                            "robustness" = c(1), # M, G only bc they are strongest ER from past exploration
                            "mutation rate" = c(0.0005, 0.005, 0.01),
-                           "compartments" = c(2), 
-                           "transmission type" = c(1, 2)) 
+                           "compartments" = c(2),
+                           "transmission type" = c(1))
 N <- dim(sis_pop_mut)[1]
 sis_pop_mut$number <- 1:N
-rep_num <- 2500 
+rep_num <- 2500
 rep_sis_pm <- matrix(rep(t(sis_pop_mut), rep_num), ncol = ncol(sis_pop_mut), byrow = T)
 rep_sis_pm <- as.data.frame(rep_sis_pm)
 colnames(rep_sis_pm) <- colnames(sis_pop_mut)
@@ -142,9 +135,9 @@ colnames(rep_sis_pm) <- colnames(sis_pop_mut)
 sim_results_pm <- mclapply(1:(N*rep_num), function(i){
 
   case_vect <- base_vect
-  case_vect[35] <- rep_sis_pm$number[i]
+  case_vect[34] <- rep_sis_pm$number[i]
   case_vect[1] <- rep_sis_pm$compartments[i]
-  
+
   if (rep_sis_pm$`transmission type`[i]==1) {
     case_vect[7:9] <- 1.25 # transmission increased (dens)
   }
@@ -152,19 +145,19 @@ sim_results_pm <- mclapply(1:(N*rep_num), function(i){
     case_vect[3:5] <- 2 # transmission increased (freq)
   }
 
-  case_vect[28] <- rep_sis_pm$`population size`[i]
-  case_vect[27] <- rep_sis_pm$`mutation rate`[i]
+  case_vect[27] <- rep_sis_pm$`population size`[i]
+  case_vect[26] <- rep_sis_pm$`mutation rate`[i]
 
   if (rep_sis_pm$robustness[i] == 1) {
     case_vect[14] <- 0
     case_vect[15] <- 0.5*case_vect[16]
   } # 1 = mortality
   if (rep_sis_pm$robustness[i] == 2) {
-    case_vect[7] <- 0*case_vect[9] 
+    case_vect[7] <- 0*case_vect[9]
     case_vect[8] <- 0.5*case_vect[9]
   } # 1 = transmission
   if (rep_sis_pm$robustness[i] == 3) {
-    case_vect[19] <- 1.516
+    case_vect[19] <- 1.5
     case_vect[20] <- (case_vect[19]+case_vect[21])/2
   } # 1 = recovery, nb: recovery higher
 
@@ -182,7 +175,7 @@ saveRDS(sim_results_pm, file = paste0("dat/pm_fig_", format(Sys.time(), "%m%d"),
 # other variable to check in the number of disease cycles between reproductions
 sis_dc <- expand.grid("disease cycles" = 2:5, # probably provides enough insight...
                       "robustness" = c(1, 3), # M, G only bc they are strongest ER (from fig 3)
-                      "event order" = c(2, 4, 6),
+                      "event order" = c(1, 4, 6),
                       "transmission" = c(1),
                       "compartments" = c(2)) # 1 = density, 2 = envrionemntal
 N <- dim(sis_dc)[1]
@@ -195,7 +188,7 @@ colnames(rep_sis_dc) <- colnames(sis_dc)
 sim_results_dc <- mclapply(1:(N*rep_num), function(i){
 
   case_vect <- base_vect
-  case_vect[35] <- rep_sis_dc$number[i]
+  case_vect[34] <- rep_sis_dc$number[i]
   
   # compartments
   case_vect[1] <- rep_sis_dc$compartments[i] # SIS
@@ -213,13 +206,13 @@ sim_results_dc <- mclapply(1:(N*rep_num), function(i){
     case_vect[15] <- case_vect[16]*0.5
   } # 1 = mortality
   if (rep_sis_dc$robustness[i] == 3) {
-    case_vect[19] <- 1.516
+    case_vect[19] <- 1.5
     case_vect[20] <- (case_vect[19]+case_vect[21])/2
   } # 3 = recovery, nb: recovery higher
 
   # modify base parameters
   case_vect[2] <- rep_sis_dc$`event order`[i] # diddo
-  case_vect[31] <- rep_sis_dc$`disease cycles`[i]
+  case_vect[30] <- rep_sis_dc$`disease cycles`[i]
 
   # cycles stay the same, they'll get divided out by disease cycles (parameter 31...) within cluster_run function
 
