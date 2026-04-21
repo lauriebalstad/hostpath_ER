@@ -58,9 +58,9 @@ fig_er_long <- pivot_longer(fig_er[, c(1, 4)], cols = 2)
 fig_il_long <- pivot_longer(fig_il[, c(1, 4)], cols = 2)
 fig_ex_long$metric <- rep("P(Ext)")
 fig_er_long$metric <- rep("P(ER)")
-fig_il_long$metric <- rep("P(Lose Inf.)")
+fig_il_long$metric <- rep("P(Inf. Loss)")
 fig_long <- rbind(fig_ex_long, fig_er_long, fig_il_long)
-fig_long$metric <- factor(fig_long$metric, levels = c("P(Ext)", "P(ER)", "P(Lose Inf.)"))
+fig_long$metric <- factor(fig_long$metric, levels = c("P(Ext)", "P(ER)", "P(Inf. Loss)"))
 # fig_long <- pivot_longer(fig_tot, cols = 2) 
 
 # histograms -- this is the move!
@@ -327,7 +327,7 @@ print(figS3)
 dev.off()
 
 # using information from 02_run_randomForest
-RF_class$clss <- recode(RF_class$clss, "ER" = "Persist. ER", "T_ER" = "Temp. ER", "IL" = "Lose Inf.")
+RF_class$clss <- recode(RF_class$clss, "ER" = "Persist. ER", "T_ER" = "Temp. ER", "IL" = "Inf. Loss", "UNK" = "Inconclusive")
 figS2 <- ggplot(RF_class, aes(x = clss, fill = clss)) + geom_bar() + 
   scale_fill_manual(values = c("#ac1457", "black", "#DB6341",  "#D71B33", "#f1c4a2", "gray")) +
   theme_bw() + labs(x = "Classification") + 
