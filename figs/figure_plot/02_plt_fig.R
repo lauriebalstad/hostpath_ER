@@ -6,6 +6,7 @@ library(viridis)
 library(ggh4x)
 # library(ggparty) 
 # note: run random forest first, that's where sim_dat is from
+# source("sens/02_run_randomForest.R") # NB: only need through RF_class creation
 
 #-----SUPP: COMP SIMULATIONS-----
 str_dat_A <- readRDS("dat/gsa_result_0220-1006.Rdata")
@@ -33,23 +34,23 @@ str_dtf_B <- sim_dat %>% filter(parm_number < 201)
 parm_nums <- data.frame(parm_number = 1:200)
 
 # calc probs and merge for ext, er, il
-str_ex_A <- str_dtf_A %>% filter(extinct == 1) %>% group_by(parm_number) %>% summarise(`P(Ex) - A` = n()/2500)
-str_ex_B <- str_dtf_B %>% filter(extinct == 1) %>% group_by(parm_number) %>% summarise(`P(Ex) - B` = n()/2500)
+str_ex_A <- str_dtf_A %>% filter(extinct == 1) %>% group_by(parm_number) %>% summarise(`P(Ex) - A` = n()/250)
+str_ex_B <- str_dtf_B %>% filter(extinct == 1) %>% group_by(parm_number) %>% summarise(`P(Ex) - B` = n()/250)
 fig_ex <- merge(str_ex_A, str_ex_B, by = "parm_number", all = T) # NB: not keeping parameter row when both are zeros... get those back in!
 fig_ex <- merge(fig_ex, parm_nums, all = T)
 fig_ex$diff <- ifelse(is.na(fig_ex$`P(Ex) - A`), 0, fig_ex$`P(Ex) - A`) - ifelse(is.na(fig_ex$`P(Ex) - B`), 0, fig_ex$`P(Ex) - B`)
 
-str_er_A <- str_dtf_A %>% filter(extinct == 0 & abs(last_50-first_50-tot_50) <3 & tot_50 > 3 &  at_K95 == 1 & r_allele_peak45 == 1) %>% group_by(parm_number) %>% summarise(`P(ER) - A` = n()/2500)
-str_er_B <- str_dtf_B %>% filter(extinct == 0 & abs(last_50-first_50-tot_50) <3 & tot_50 > 3 &  at_K95 == 1 & r_allele_peak45 == 1) %>% group_by(parm_number) %>% summarise(`P(ER) - B` = n()/2500)
+str_er_A <- str_dtf_A %>% filter(extinct == 0 & abs(last_50-first_50-tot_50) <3 & tot_50 > 3 &  at_K95 == 1 & r_allele_peak45 == 1) %>% group_by(parm_number) %>% summarise(`P(ER) - A` = n()/250)
+str_er_B <- str_dtf_B %>% filter(extinct == 0 & abs(last_50-first_50-tot_50) <3 & tot_50 > 3 &  at_K95 == 1 & r_allele_peak45 == 1) %>% group_by(parm_number) %>% summarise(`P(ER) - B` = n()/250)
 fig_er <- merge(str_er_A, str_er_B, by = "parm_number", all = T) # NB: not keeping parameter row when both are zeros... get those back in!
 fig_er <- merge(fig_er, parm_nums, all = T)
 fig_er$diff <- ifelse(is.na(fig_er$`P(ER) - A`), 0, fig_er$`P(ER) - A`) - ifelse(is.na(fig_er$`P(ER) - B`), 0, fig_er$`P(ER) - B`)
 
-str_il_A <- str_dtf_A %>% filter(extinct == 0 & abs(last_50-first_50-tot_50) <3 & tot_50 > 3 & at_K95 == 1 & r_allele_peak45 == 0 & final_inf_prev == 0) %>% group_by(parm_number) %>% summarise(`P(Lose Inf.) - A` = n()/2500)
-str_il_B <- str_dtf_B %>% filter(extinct == 0 & abs(last_50-first_50-tot_50) <3 & tot_50 > 3 & at_K95 == 1 & r_allele_peak45 == 0 & final_inf_prev == 0) %>% group_by(parm_number) %>% summarise(`P(Lose Inf.) - B` = n()/2500)
+str_il_A <- str_dtf_A %>% filter(extinct == 0 & abs(last_50-first_50-tot_50) <3 & tot_50 > 3 & at_K95 == 1 & r_allele_peak45 == 0 & final_inf_prev == 0) %>% group_by(parm_number) %>% summarise(`P(Inf. Loss) - A` = n()/250)
+str_il_B <- str_dtf_B %>% filter(extinct == 0 & abs(last_50-first_50-tot_50) <3 & tot_50 > 3 & at_K95 == 1 & r_allele_peak45 == 0 & final_inf_prev == 0) %>% group_by(parm_number) %>% summarise(`P(Inf. Loss) - B` = n()/250)
 fig_il <- merge(str_il_A, str_il_B, by = "parm_number", all = T) # NB: not keeping parameter row when both are zeros... get those back in!
 fig_il <- merge(fig_il, parm_nums, all = T)
-fig_il$diff <- ifelse(is.na(fig_il$`P(Lose Inf.) - A`), 0, fig_il$`P(Lose Inf.) - A`) - ifelse(is.na(fig_il$`P(Lose Inf.) - B`), 0, fig_il$`P(Lose Inf.) - B`)
+fig_il$diff <- ifelse(is.na(fig_il$`P(Inf. Loss) - A`), 0, fig_il$`P(Inf. Loss) - A`) - ifelse(is.na(fig_il$`P(Inf. Loss) - B`), 0, fig_il$`P(Inf. Loss) - B`)
 
 # combine to plot the things
 # add column and pivot longer
@@ -88,39 +89,43 @@ intv <- round(intv, 3)
 # use largest for the intervals, throughotu the main sims figures below
 
 #-----MAIN SIMS: READ IN DATA-----
-str_dat <- readRDS("dat/str_fig_0128.Rdata")
+str_dat <- readRDS("dat/str_fig_0602.Rdata")
 # convert to df
-str_dtf <- as.data.frame(matrix(unlist(str_dat), ncol = 22, byrow = T))
+str_dtf <- as.data.frame(matrix(unlist(str_dat), ncol = 27, byrow = T))
 colnames(str_dtf) <- c("extinct", 
-                       "pop_drop20", "pop_drop50", # "pop_drop80",
-                       "r_allele_peak15", "r_allele_peak45", #"r_allele_peak75",
-                       "final_r_allele", 
-                       "final_pop_size", "final_inf_prev",
-                       "max_r_allele", # "time_max_r_allele",
-                       "max_inf_prev", "time_last_zero_inf",
-                       "min_pop", "time_min_pop",
-                       "first_20", "first_50", # "first_80",
-                       "last_20", "last_50", # "last_80",
-                       "tot_20", "tot_50", #"to t_80",
-                       "at_K95", "firstK95",
-                       # "r_ts_d0", 
-                       "parm_number")
+                      "pop_drop20", "pop_drop50", "pop_drop80",
+                      "r_allele_peak15", "r_allele_peak45", "r_allele_peak75",
+                      "final_r_allele", 
+                      # "final_pop_size", 
+                      "final_inf_prev",
+                      "max_r_allele", # "time_max_r_allele",
+                      "max_inf_prev", "time_last_zero_inf",
+                      "min_pop", "time_min_pop",
+                      "first_20", "first_50", "first_80",
+                      "last_20", "last_50", "last_80",
+                      "tot_20", "tot_50", "tot_80",
+                      "at_K95", "firstK95",
+                      "r_ts_d0", 
+                      "parm_number")
 
-cb_dat <- readRDS("dat/cb_fig_0128.Rdata")
-cb_dtf <- as.data.frame(matrix(unlist(cb_dat), ncol = 22, byrow = T))
+# cb_dat <- readRDS("dat/cb_fig_0128.Rdata")
+cb_dat <- readRDS("dat/cb_fig_0602.Rdata")
+# cb_dtf <- as.data.frame(matrix(unlist(cb_dat), ncol = 22, byrow = T))
+cb_dtf <- as.data.frame(matrix(unlist(cb_dat), ncol = 27, byrow = T))
 colnames(cb_dtf) <- c("extinct", 
-                       "pop_drop20", "pop_drop50", # "pop_drop80",
-                       "r_allele_peak15", "r_allele_peak45", #"r_allele_peak75",
+                       "pop_drop20", "pop_drop50", "pop_drop80",
+                       "r_allele_peak15", "r_allele_peak45", "r_allele_peak75",
                        "final_r_allele", 
-                       "final_pop_size", "final_inf_prev",
+                       # "final_pop_size", 
+                       "final_inf_prev",
                        "max_r_allele", # "time_max_r_allele",
                        "max_inf_prev", "time_last_zero_inf",
                        "min_pop", "time_min_pop",
-                       "first_20", "first_50", # "first_80",
-                       "last_20", "last_50", # "last_80",
-                       "tot_20", "tot_50", #"to t_80",
+                       "first_20", "first_50", "first_80",
+                       "last_20", "last_50", "last_80",
+                       "tot_20", "tot_50", "tot_80",
                        "at_K95", "firstK95",
-                       # "r_ts_d0", 
+                       "r_ts_d0", 
                        "parm_number")
 
 dc_dat <- readRDS("dat/dc_fig_0128.Rdata")
@@ -161,58 +166,62 @@ colnames(pm_dtf) <- c("extinct",
 
 #-----FIG1: TIME SERIES & STR-----
 # time series data loading
-str_dat <- readRDS("dat/all_ts_dat_0120.rds") # conintue to play w... there's a lot of cases w/o pop drop getting hit
+# str_dat <- readRDS("dat/all_ts_dat_0120.rds") # conintue to play w... there's a lot of cases w/o pop drop getting hit
+str_dat <- readRDS("dat/all_ts_dat_0602.rds") # conintue to play w... there's a lot of cases w/o pop drop getting hit
 # remove exs without popdrop
-all_ts_long <- pivot_longer(str_dat %>% select(c(8, 1, 7, 9, 11)), cols = c(3:5), names_to = "outcome", values_to = "value")
+all_ts_long <- pivot_longer(str_dat %>% select(c(1, 2, 8, 9, 11)), cols = c(3:5), names_to = "outcome", values_to = "value")
 all_ts_long$outcome_f <- factor(all_ts_long$outcome, 
                                 levels = c("Scaled\npopulation size", "Adaptive allele\nfrequency", "Infection\nprevelence"), 
                                 labels = c("Scaled pop. size", "Adaptive allele freq.", "Infection prev."))
-colors <- c("Extirpation" = alpha("black", 0.8), "Persist. ER" = alpha("#ac1457",0.8),
-            "Temp. ER" = "#f1c4a2", "Inf. Loss" = alpha("#DB6341", 0.8))
-fig1A <- ggplot(all_ts_long, aes(ts, value)) + # 7, 8, 9, 10 gives exinction
+colors <- c("Extirpation" = alpha("#ac1457", 0.8), "Persist. ER" = alpha("#DB6341",0.8),
+            "Temp. ER" = "#D71B33", "Inf. Loss" = alpha("#f1c4a2", 0.8),
+            "No Density" = "black")
+fig1A <- ggplot(all_ts_long %>% filter(ts > -8, ts < 60), aes(ts, value)) + # 7, 8, 9, 10 gives exinction
   geom_line(aes(group = trial), col = alpha("black", 0.1), lwd = 0.75) +
-  geom_line(data = all_ts_long %>% filter(trial == 2), aes(color = "Extirpation"), lwd = 0.85) + # extinction
-  geom_line(data = all_ts_long %>% filter(trial == 1), aes(color = "Persist. ER"), lwd = 0.85) + # ER
-  geom_line(data = all_ts_long %>% filter(trial == 10), aes(color = "Lose Inf."), lwd = 0.85) + # DR
-  geom_line(data = all_ts_long %>% filter(trial == 6), aes(color = "Temp. ER"), lwd = 0.85) + # back selection
+  geom_line(data = all_ts_long %>% filter(trial == 15, ts > -8, ts < 60), aes(color = "No Density"), lwd = 0.8) + # extinction
+  geom_line(data = all_ts_long %>% filter(trial == 4, ts > -8, ts < 60), aes(color = "Extirpation"), lwd = 0.9) + # extinction
+  geom_line(data = all_ts_long %>% filter(trial == 6, ts > -8, ts < 60), aes(color = "Persist. ER"), lwd = 0.9) + # ER
+  geom_line(data = all_ts_long %>% filter(trial == 10, ts > -8, ts < 60), aes(color = "Inf. Loss"), lwd = 0.95) + # DR
+  geom_line(data = all_ts_long %>% filter(trial == 8, ts > -8, ts < 60), aes(color = "Temp. ER"), lwd = 0.9) + # back selection
   facet_wrap(~outcome_f, scale = "free_y", ncol = 1) + theme_bw() + 
-  scale_color_manual(values = colors) + 
+  scale_color_manual(values = colors, 
+                     breaks = c("No Density", "Temp. ER", "Inf. Loss", 
+                                "Extirpation", "Persist. ER")) + 
   theme(text = element_text(size = 11),
         legend.text = element_text(size = 10.5),
         legend.title = element_text(size = 10.5),
         legend.position = "bottom") + 
-  guides(color = guide_legend(nrow = 2)) +
+  guides(color = guide_legend(nrow = 3)) +
   labs(x = "Standardized generation", y = NULL, col = NULL)
 
 # merge data w/original cases
-cases <- expand.grid("transmission type" = 1:2, 
-                     "compartments" = 1:3, # note SIR doesn't seem to have a big effect
-                     "robustness" = 1:4) # 1 = mortality, 2 = transmission, 3 = recovery, 4 = demographic rescue only
+cases <- expand.grid("transmission" = c("Density only", "W/Reservior", "No density"), 
+                     "compartments" = c("Mortality", "Recovery", "Immunity"), # note SIR doesn't seem to have a big effect
+                     "robustness" = c("MB", "TB", "RA", "N")) # 1 = mortality, 2 = transmission, 3 = recovery, 4 = demographic rescue only
 # remove 1/3 compartment/robustness combo
-cases <- cases[c(1:12, 15:24), ]
+cases <- cases[c(1:18, 22:36), ]
 N <- dim(cases)[1]
 cases$number <- 1:N
-tmp <- merge(str_dtf, cases, by.x = "parm_number", by.y = "number", all = T)
+# tmp <- merge(str_dtf, cases, by.x = "parm_number", by.y = "number", all = T)
 # get summaries to plot
-prob_dat <- tmp %>% group_by(parm_number) %>% 
+prob_dat <- str_dtf %>% group_by(parm_number) %>% 
   summarize(`P(Ext)` = sum(extinct)/n()) 
-er_dat <- tmp %>% 
+er_dat <- str_dtf %>% 
   group_by(parm_number) %>% 
-  filter(extinct == 0 & pop_drop50 == 1 & at_K95 == 1 & r_allele_peak45 == 1 & final_r_allele > 0.5*max_r_allele ) %>% 
-  summarize(`P(Persist. ER)` = n()/2500)
-il_dat <- tmp %>% filter(extinct == 0 & pop_drop50 == 1 & at_K95 == 1 & r_allele_peak45 == 0 & final_inf_prev == 0) %>% 
+  filter(extinct == 0 & pop_drop50 == 1 & at_K95 == 1 & r_allele_peak45 == 1 & final_r_allele > 0.5*max_r_allele) %>% 
+  summarize(`P(Persist. ER)` = n()/250)
+il_dat <- str_dtf %>% filter(extinct == 0 & pop_drop50 == 1 & at_K95 == 1 & r_allele_peak45 == 0 & final_inf_prev == 0) %>% 
   group_by(parm_number) %>% 
-  summarize(`P(Lose Inf.)` = n()/2500)
+  summarize(`P(IL)` = n()/250)
 # merge
 tmp <- merge(prob_dat, er_dat, by = c("parm_number"), all = T)
 tmp <- merge(tmp, il_dat, by = c("parm_number"), all = T)
 # tmp <- merge(tmp, er_tmp_dat, by = c("parm_number"), all = T)
+
 plot_dat <- merge(tmp, cases, by.x = c("parm_number"), by.y = "number")
-# rename
-plot_dat$compartments <- recode(plot_dat$compartments, "1" = "mortality", "2" = "recovery", "3" = "immunity")
-plot_dat$compartments <- factor(plot_dat$compartments, levels = c("mortality", "recovery", "immunity"))
-plot_dat$`transmission type` <- recode(plot_dat$`transmission type`, "1" = "density", "2" = "environmental", "3" = "density + environmental")
-plot_dat$robustness <- recode(plot_dat$robustness, "1" = "MB", "2" = "TB", "3" = "RA", "4" = "N")
+
+# reorder
+plot_dat$compartments <- factor(plot_dat$compartments, levels = c("Mortality", "Recovery", "Immunity"))
 plot_dat$`evolutionary pathway` <- factor(plot_dat$robustness, levels = c("N", "TB", "MB", "RA"))
 # convert to long
 plot_long <- pivot_longer(plot_dat, cols = 2:4, names_to = "outcome", values_to = "value")
@@ -223,17 +232,18 @@ for (i in 1: length(plot_long$value)) {
   if (plot_long$plus[i] > 1) plot_long$plus[i] <- 1
   if (plot_long$less[i] < 0) plot_long$less[i] <- 0
 }
-plot_long$outcome_f <- factor(plot_long$outcome, levels = c("P(Ext)", "P(Persist. ER)", "P(Temp. ER)", "P(Lose Inf.)"))
+plot_long$outcome_f <- factor(plot_long$outcome, levels = c("P(Ext)", "P(Persist. ER)", "P(Temp. ER)", "P(IL)"))
 # points plot
-fig1B <- ggplot(plot_long, aes(`evolutionary pathway`, value, col = `transmission type`)) + 
+fig1B <- ggplot(plot_long, aes(`evolutionary pathway`, col = outcome_f, shape = `transmission`)) + 
   coord_cartesian(ylim = c(0, NA)) +
-  geom_rect(data = plot_long %>% filter(compartments == "recovery"), aes(xmin = "TB", xmax = "RA", ymin = 0, ymax = 1), fill = NA, col = "black", lty = "dashed") +
+  # geom_rect(data = plot_long %>% filter(compartments == "recovery"), aes(xmin = "TB", xmax = "RA", ymin = 0, ymax = 1), fill = NA, col = "black", lty = "dashed") +
   geom_linerange(aes(ymin = less, ymax = plus), lwd = 1) + 
   geom_hline(data = plot_long %>% filter(`evolutionary pathway` == "N"), aes(yintercept = value), col = "gray70", lty = "dashed") + 
-  geom_point(size = 2) + scale_color_manual(values = c("#ac1457", "#f1c4a2")) +
+  geom_point(aes(y = value), size = 2.5, fill = "white") + scale_shape_manual(values = c(15, 16, 21)) + 
+  scale_color_manual(values = c("#ac1457", "#DB6341","#f1c4a2")) +
   facet_grid(rows = vars(outcome_f), cols = vars(compartments)) + 
-  labs(x = "Adaptive pathway", y = "Probability", col = "Transmission type") + 
-  theme_bw()  + 
+  labs(x = "Adaptive pathway", y = "Probability", shape = "Transmission") + 
+  theme_bw()  + guides(col = "none") +
   theme(text = element_text(size = 11),
         legend.text = element_text(size = 10.5),
         legend.title = element_text(size = 10.5),
@@ -340,69 +350,77 @@ print(figS2)
 dev.off()
 
 #-----FIG2: COST/BENEFIT-----
-# merge data: use the percents directly to avoid flipping around later
-sis_cb_A <- expand.grid("benefit" = c(100, 75, 50, 0), # for percent change in benefit: 0, 50, 75, 100
-                        "cost" = c(0.1, 0.5, 1), # 1.7 = some cost, 2.1 = no cost
-                        "case" = c("Transmission-blocking"), # tranmission
-                        "compartments" = c(2))
-sis_cb_B <- expand.grid("benefit" = c(2900, 900, 200, 0), # for percent change in benefit: 0, 100, 500, 1500
-                        "cost" = c(0.1, 0.5, 1), # 1.7 = some cost, 2.1 = no cost
-                        "case" = c("Recovery-augementing"), # recovery
-                        "compartments" = c(2))
-sis_cb_C <- expand.grid("benefit" = c(100, 75, 50, 0), # for percent change in benefit: 0, 50, 75, 100
-                        "cost" = c(0.1, 0.5, 1), # 1.7 = some cost, 2.1 = no cost
-                        "case" = c("Mortality-blocking"), # mortality
-                        "compartments" = c(2))
-sis_cb <- rbind(sis_cb_A, sis_cb_B, sis_cb_C)
+# # merge data: use the percents directly to avoid flipping around later
+# sis_cb_A <- expand.grid("benefit" = c(100, 75, 50, 0), # for percent change in benefit: 0, 50, 75, 100
+#                         "cost" = c(0.1, 0.5, 1), # 1.7 = some cost, 2.1 = no cost
+#                         "case" = c("Transmission-blocking"), # tranmission
+#                         "compartments" = c(2))
+# sis_cb_B <- expand.grid("benefit" = c(2900, 900, 200, 0), # for percent change in benefit: 0, 100, 500, 1500
+#                         "cost" = c(0.1, 0.5, 1), # 1.7 = some cost, 2.1 = no cost
+#                         "case" = c("Recovery-augementing"), # recovery
+#                         "compartments" = c(2))
+# sis_cb_C <- expand.grid("benefit" = c(100, 75, 50, 0), # for percent change in benefit: 0, 50, 75, 100
+#                         "cost" = c(0.1, 0.5, 1), # 1.7 = some cost, 2.1 = no cost
+#                         "case" = c("Mortality-blocking"), # mortality
+#                         "compartments" = c(2))
+# sis_cb <- rbind(sis_cb_A, sis_cb_B, sis_cb_C)
+sis_cb <- expand.grid("benefit" = c(100, 75, 50, 0), # for percent change in benefit: 0, 50, 75, 100
+                      "cost" = c(0.2, 0.6, 1), # 0.1 = some cost, 1 = no cost
+                      # "case" = c("\u03bc"), # mortality
+                      # "compartments" = c(2), 
+                      "transmission" = c("Density only", "W/Reservior", "No density"))
 N <- dim(sis_cb)[1]
 sis_cb$number <- 1:N
 cost_ben <- merge(cb_dtf, sis_cb, by.x = "parm_number", by.y = "number", all = T) # %>% filter(cost > 1.8)
 # get summaries to plot -- P(ER) + T_K + max/final R/inf (6) for the ER cases only
 ex_dat <- cost_ben %>% filter(extinct == 1) %>% 
-  group_by(benefit, cost, case, compartments) %>% 
-  summarize(`P(Ext)` = n()/2500)
+  group_by(benefit, cost, transmission) %>% 
+  summarize(`P(Ext)` = n()/250)
 er_dat <- cost_ben %>% filter(extinct == 0 & abs(last_50-first_50-tot_50) < 0.5*tot_50 & tot_50 > 3 & at_K95 == 1 & r_allele_peak45 == 1) %>% 
-  group_by(benefit, cost, case, compartments) %>% 
-  summarize(`P(ER)` = n()/2500)
+  group_by(benefit, cost, transmission) %>% 
+  summarize(`P(ER)` = n()/250)
 dr_dat <- cost_ben %>% filter(extinct == 0 & abs(last_50-first_50-tot_50) < 0.5*tot_50 & tot_50 > 3 & at_K95 == 1 & r_allele_peak45 == 0 & final_inf_prev == 0) %>%    
-  group_by(benefit, cost, case, compartments) %>% 
-  summarize(`P(Lose Inf.)` = n()/2500)
-plt_dat <- merge(ex_dat, er_dat)
-plt_dat <- merge(plt_dat, dr_dat)
+  group_by(benefit, cost, transmission) %>% 
+  summarize(`P(IL)` = n()/250)
+plt_dat <- merge(ex_dat, er_dat, all = T)
+plt_dat <- merge(plt_dat, dr_dat, all = T) 
+plt_dat$`P(Ext)` <- ifelse(is.na(plt_dat$`P(Ext)`), 0, plt_dat$`P(Ext)`)
+plt_dat$`P(ER)` <- ifelse(is.na(plt_dat$`P(ER)`), 0, plt_dat$`P(ER)`)
+plt_dat$`P(IL)` <- ifelse(is.na(plt_dat$`P(IL)`), 0, plt_dat$`P(IL)`)
 # rbind creates a ton of NAs but it's okay...
-cb_summ_long <- pivot_longer(plt_dat, cols= 5:7, names_to = "outcome", values_to = "value")
+cb_summ_long <- pivot_longer(plt_dat, cols= 4:6, names_to = "outcome", values_to = "value")
 cb_summ_long$plus <- cb_summ_long$value + intv
 cb_summ_long$less <- cb_summ_long$value - intv
 for (i in 1:length(cb_summ_long$value)) {
   if (cb_summ_long$plus[i] > 1) cb_summ_long$plus[i] <- 1
   if (cb_summ_long$less[i] < 0) cb_summ_long$less[i] <- 0
 }
-cost_ben$firstK95 <- (cost_ben$firstK95-30)/4 # remove 100 year burn in period (100/2 disease gens)
+cost_ben$firstK95 <- (cost_ben$firstK95-(100/4))/4 # remove 100 year burn in period (100/2 disease gens)
 cost_ben <- rename(cost_ben, 
-                 `Final M allele\nfrequency (ER)` = final_r_allele, 
-                 `Final infection\nprevelence (ER)` = final_inf_prev, 
+                 `Final M allele\nfrequency (ER)` = final_r_allele,
+                 `Final infection\nprevelence (ER)` = final_inf_prev,
                  `Time to\nrecovery (ER)` = firstK95)
 cb_all_long <- pivot_longer(cost_ben %>% filter(extinct == 0 & abs(last_50-first_50-tot_50) < 0.5*tot_50 & tot_50 > 3 & at_K95 == 1 & r_allele_peak45 == 1) %>% 
-                              select(c(22:26)), 
-                            cols = 1, names_to = "outcome", values_to = "value")
-cb_summ_long$outcome_f <- factor(cb_summ_long$outcome, levels = c("P(Ext)", "P(ER)", "P(Lose Inf.)", 
+                              select(c(26, 28:30)), 
+                             cols = 1, names_to = "outcome", values_to = "value")
+cb_summ_long$outcome_f <- factor(cb_summ_long$outcome, levels = c("P(Ext)", "P(ER)", "P(IL)", 
                                                             "Time to\nrecovery (ER)"))
-cb_all_long$outcome_f <- factor(cb_all_long$outcome, levels = c("P(Ext)", "P(ER)", "P(Lose Inf.)", 
+cb_all_long$outcome_f <- factor(cb_all_long$outcome, levels = c("P(Ext)", "P(ER)", "P(IL)", 
                                                             "Time to\nrecovery (ER)"))
 cb_no_evo <- cb_all_long %>% filter(benefit > 0)
 cb_no_evo_HL <- cb_no_evo # %>% filter(cost %in% c(1.7, 2.1))
 cb_summ_long_HL <- cb_summ_long # %>% filter(cost %in% c(1.7, 2.1))
 fig2 <- ggplot(NULL, aes(x=as.factor(benefit), y=value, col = as.factor(cost))) + 
-  geom_vline(data = cb_no_evo_HL, aes(xintercept = as.factor(100)), lty = "dashed") +
-  geom_vline(data = cb_no_evo_HL, aes(xintercept = as.factor(2900)), lty = "dashed") +
-  geom_vline(data = cb_summ_long_HL, aes(xintercept = as.factor(100)), lty = "dashed") +
-  geom_vline(data = cb_summ_long_HL, aes(xintercept = as.factor(2900)), lty = "dashed") +
+  # geom_vline(data = cb_no_evo_HL, aes(xintercept = as.factor(100)), lty = "dashed") +
+  # geom_vline(data = cb_no_evo_HL, aes(xintercept = as.factor(2900)), lty = "dashed") +
+  # geom_vline(data = cb_summ_long_HL, aes(xintercept = as.factor(100)), lty = "dashed") +
+  # geom_vline(data = cb_summ_long_HL, aes(xintercept = as.factor(2900)), lty = "dashed") +
   coord_cartesian(ylim = c(0, NA)) +
   geom_point(data = cb_summ_long_HL, size = 2) + 
   geom_boxplot(data = cb_no_evo_HL) + 
   geom_linerange(data = cb_summ_long_HL, aes(ymin = less, ymax = plus), lwd = 1) + 
   scale_color_manual(values = c("#ac1457", "#DB6341", "#f1c4a2")) +
-  facet_grid(rows = vars(outcome_f), cols = vars(case), scales = "free") + 
+  facet_grid(rows = vars(outcome_f), cols = vars(transmission), scales = "free") + 
   theme_bw() + theme(text = element_text(size = 11), legend.position = "bottom") + 
   labs(x = "Mutant allele benefit\n(percent change in rate)", col = "Mutant allele\ncost (avg. fecundity)", y = NULL)
 
@@ -431,13 +449,13 @@ ex_risk$transmission <- recode(ex_risk$`transmission type`, "1" = "Density-depen
 # get summaries to plot -- P(ER) + T_K + max/final R/inf (6) for the ER cases only
 ex_dat <- ex_risk %>% filter(extinct == 1) %>% 
   group_by(parm_number) %>% 
-  summarize(`P(Ext)` = n()/2500)
+  summarize(`P(Ext)` = n()/250)
 er_dat <- ex_risk %>% filter(extinct == 0 & abs(last_50-first_50-tot_50) < 0.5*tot_50 & tot_50 > 3 & at_K95 == 1 & r_allele_peak45 == 1) %>% 
   group_by(parm_number) %>% 
-  summarize(`P(ER)` = n()/2500)
+  summarize(`P(ER)` = n()/250)
 dr_dat <- ex_risk %>% filter(extinct == 0 & abs(last_50-first_50-tot_50) < 0.5*tot_50 & tot_50 > 3 & at_K95 == 1 & r_allele_peak45 == 0 & final_inf_prev == 0) %>%    
   group_by(parm_number) %>% 
-  summarize(`P(Lose Inf.)` = n()/2500)
+  summarize(`P(Inf. Loss)` = n()/250)
 plt_dat <- merge(ex_dat, er_dat)
 plt_dat <- merge(plt_dat, dr_dat)
 tmp <- merge(plt_dat, sis_pop_mut, by.x = "parm_number", by.y = "number")
@@ -464,9 +482,9 @@ custom_y <- list(
   scale_y_continuous(limits = c(0, 1)),
   scale_y_continuous(limits = c(0, 140))
 )
-pm_summ_long$outcome_f <- factor(pm_summ_long$outcome, levels = c("P(Ext)", "P(ER)", "P(Lose Inf.)", 
+pm_summ_long$outcome_f <- factor(pm_summ_long$outcome, levels = c("P(Ext)", "P(ER)", "P(Inf. Loss)", 
                                                                   "Final M allele\nfrequency (ER)", "Final infection\nprevelence (ER)", "Time to\nrecovery (ER)"))
-pm_all_long$outcome_f <- factor(pm_all_long$outcome, levels = c("P(Ext)", "P(ER)", "P(Lose Inf.)", 
+pm_all_long$outcome_f <- factor(pm_all_long$outcome, levels = c("P(Ext)", "P(ER)", "P(Inf. Loss)", 
                                                                 "Final M allele\nfrequency (ER)", "Final infection\nprevelence (ER)", "Time to\nrecovery (ER)"))
 fig3 <- ggplot(NULL, aes(x=as.factor(`population size`), y=value, col=as.factor(`mutation rate`))) + 
   geom_vline(data = pm_all_long, aes(xintercept = as.factor(100)), lty = "dashed") + 
@@ -509,17 +527,17 @@ sis_dc$transmission <- recode(sis_dc$transmission, "1" = "Density-dependent", "2
 # get summaries to plot -- P(ER) + T_K + max/final R/inf (6) for the ER cases only --> note more generous def of pop drop
 er_dat <- dc_dat %>% filter(extinct == 0 & pop_drop50 == 1 & at_K95 == 1 & r_allele_peak45 == 1) %>% 
   group_by(`parm_number`) %>% 
-  summarize(`P(ER)` = n()/2500)
+  summarize(`P(ER)` = n()/250)
 tmp <- merge(er_dat, sis_dc, by = "parm_number", all = T)
 er_dat <- tmp; er_dat[is.na(er_dat)] <- 0
 dr_dat <- dc_dat %>% filter(extinct == 0 & pop_drop50 == 1 & at_K95 == 1 & r_allele_peak45 == 0 & final_inf_prev == 0) %>%    
   group_by(parm_number) %>% 
-  summarize(`P(Lose Inf.)` = n()/2500)
+  summarize(`P(Inf. Loss)` = n()/250)
 tmp <- merge(dr_dat, sis_dc, by = "parm_number", all = T)
 dr_dat <- tmp; dr_dat[is.na(dr_dat)] <- 0
 ex_dat <- dc_dat %>% filter(extinct == 1) %>% 
   group_by(parm_number) %>% 
-  summarize(`P(Ext)` = n()/2500)
+  summarize(`P(Ext)` = n()/250)
 tmp <- merge(ex_dat, sis_dc, by = "parm_number", all = T)
 ex_dat <- tmp; ex_dat[is.na(ex_dat)] <- 0
 # time to K
@@ -541,9 +559,9 @@ for (i in 1:length(dc_all_long$value)) {
   if (dc_all_long$plus[i] > 1) dc_all_long$plus[i] <- 1
   if (dc_all_long$less[i] < 0) dc_all_long$less[i] <- 0
 }
-dc_timeK_long$outcome_f <- factor(dc_timeK_long$outcome, levels = c("P(Ext)", "P(ER)", "P(Lose Inf.)", 
+dc_timeK_long$outcome_f <- factor(dc_timeK_long$outcome, levels = c("P(Ext)", "P(ER)", "P(Inf. Loss)", 
                                                                   "Final M allele\nfrequency (ER)", "Final infection\nprevelence (ER)", "Time to\nrecovery (ER)"))
-dc_all_long$outcome_f <- factor(dc_all_long$outcome, levels = c("P(Ext)", "P(ER)", "P(Lose Inf.)", 
+dc_all_long$outcome_f <- factor(dc_all_long$outcome, levels = c("P(Ext)", "P(ER)", "P(Inf. Loss)", 
                                                                 "Final M allele\nfrequency (ER)", "Final infection\nprevelence (ER)", "Time to\nrecovery (ER)"))
 main_sim_comp <- data.frame(`event order` <- c("Mortality, Transmission,\nRecovery"), 
                                                # "Transmission, Mortality,\nRecovery", 

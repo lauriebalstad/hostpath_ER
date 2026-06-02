@@ -3,7 +3,7 @@
     "path": "C:/Users/lauri/Documents/GitHub/hostpath_ER/funcs/00_model_cluster.R",
     "project_path": "funcs/00_model_cluster.R",
     "type": "r_source",
-    "hash": "3072731851",
+    "hash": "1907488854",
     "contents": "",
     "dirty": false,
     "created": 1768926966489.0,
@@ -12,15 +12,15 @@
     "properties": {
         "source_window_id": "",
         "Source": "Source",
-        "cursorPosition": "38,46",
-        "scrollLine": "0"
+        "cursorPosition": "33,34",
+        "scrollLine": "26"
     },
-    "folds": "53|40|60|2|\n72|29|88|2|\n139|27|223|4|\n232|22|240|4|\n360|27|444|4|\n",
-    "lastKnownWriteTime": 1769564817,
+    "folds": "52|40|59|2|\n72|29|88|2|\n91|20|99|2|\n106|20|242|2|\n248|22|576|2|\n",
+    "lastKnownWriteTime": 1780419582,
     "encoding": "UTF-8",
     "collab_server": "",
     "source_window": "",
-    "last_content_update": 1769564817089,
+    "last_content_update": 1780419603235,
     "read_only": false,
     "read_only_alternatives": []
 }

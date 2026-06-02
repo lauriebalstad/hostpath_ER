@@ -1,0 +1,26 @@
+{
+    "id": "0F6E7AC9",
+    "path": "C:/Users/lauri/Documents/GitHub/hostpath_ER/funcs/00_model_timeseries.R",
+    "project_path": "funcs/00_model_timeseries.R",
+    "type": "r_source",
+    "hash": "2161866497",
+    "contents": "",
+    "dirty": false,
+    "created": 1780418739578.0,
+    "source_on_save": false,
+    "relative_order": 2,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "7,31",
+        "scrollLine": "0"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1780419640,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1780419640855,
+    "read_only": false,
+    "read_only_alternatives": []
+}

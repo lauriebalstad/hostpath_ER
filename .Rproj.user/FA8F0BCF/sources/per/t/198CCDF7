@@ -3,24 +3,24 @@
     "path": "C:/Users/lauri/Documents/GitHub/hostpath_ER/figs/sim_fig_dat/01_sim_main.R",
     "project_path": "figs/sim_fig_dat/01_sim_main.R",
     "type": "r_source",
-    "hash": "4103875791",
+    "hash": "1572118682",
     "contents": "",
     "dirty": false,
     "created": 1771626524787.0,
     "source_on_save": false,
-    "relative_order": 4,
+    "relative_order": 3,
     "properties": {
         "source_window_id": "",
         "Source": "Source",
-        "cursorPosition": "14,17",
-        "scrollLine": "0"
+        "cursorPosition": "258,60",
+        "scrollLine": "151"
     },
-    "folds": "",
-    "lastKnownWriteTime": 1775581997,
+    "folds": "70|54|136|0|\n155|55|251|0|\n157|39|181|2|\n183|47|218|2|\n306|40|330|2|\n332|48|367|2|\n",
+    "lastKnownWriteTime": 1780439828,
     "encoding": "UTF-8",
     "collab_server": "",
     "source_window": "",
-    "last_content_update": 1775581997249,
+    "last_content_update": 1780439828814,
     "read_only": false,
     "read_only_alternatives": []
 }
