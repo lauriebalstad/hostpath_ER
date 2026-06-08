@@ -14,20 +14,20 @@ set.seed(204)
 # n <- parm_vect[27] # number of individuals at start of simulation, all WW
 
 N <- 2000 # gives ~160 parameter sets per case, SIS comparision
-num_parms <- 20 # only need 19 unique parameters 
+num_parms <- 19 # only need 19 unique parameters 
 
 mat <- randomLHS(n = N, k = num_parms) 
 # need to update the matrices so that the right sorts of things are in the matrix
-parm_mat <- matrix(NA, N, 36) # have 36 elements to fill in
+parm_mat <- matrix(NA, N, 35) # have 35 elements to fill in
 # fill in parm_mat
 parm_mat[,1] <- ceiling(qunif(mat[,1], min = 0, max = 3)) # compartments
 parm_mat[,2] <- ceiling(qunif(mat[,2], min = 0, max = 6)) # event order
 
-parm_mat[,36] <- ceiling(qunif(mat[,3], min = 0, max = 7)) # pathway: define this first, as it will inform others, but not part of the matrix
+parm_mat[,35] <- ceiling(qunif(mat[,3], min = 0, max = 7)) # pathway: define this first, as it will inform others, but not part of the matrix
 # 1: mortality, 2: transmission, 3: clearance
 # 4: M+T, 5: M+C, 6: T+C, 7: M+T+C
 
-parm_mat[,5] <- qunif(mat[,7], 0.8, 1.2) # f_WW: transform into rate with spanning negative (no enviro transmisison) to strong enviro transmission
+parm_mat[,5] <- qunif(mat[,7], -0.05, 0.1) # f_WW: transform into rate with spanning negative (no enviro transmisison) to strong enviro transmission
 parm_mat[,3] <- parm_mat[,5]*mat[,4]*0.075 # f_RR as percent of f_WW value (recall mat is vector between 0-1)
 parm_mat[,4] <- qunif(mat[,5],min=parm_mat[,3],max=parm_mat[,5]) # set f_WR between with mat dominance
 parm_mat[, 6] <- qunif(mat[,6], 0.01, 0.1) # compress f_sd 
@@ -47,7 +47,7 @@ parm_mat[,15] <- qunif(mat[,5],min=parm_mat[,14],max=parm_mat[,16]) # set m_IWR 
 parm_mat[,17] <- qunif(mat[,6], 0.01, 0.1) # compress m_Xsd 
 parm_mat[,18] <- parm_mat[,17] # m_Isd = m_Ssd
 
-parm_mat[,19] <- qunif(mat[,11], 0.8, 1.2) # r_RR: now divding by the less than one value, since RR benefits increase gamma
+parm_mat[,19] <- qunif(mat[,11], 0.05, 0.2) # r_RR: now divding by the less than one value, since RR benefits increase gamma
 parm_mat[,21] <- parm_mat[,19]*mat[,4]*0.075 # r_WW: avoids negative values
 parm_mat[,20] <- qunif(mat[,5],min=parm_mat[,21],max=parm_mat[,19]) # set r_WR between with others with dominance
 parm_mat[,22] <- qunif(mat[,6], 0.01, 0.1) # compress r_sd 
@@ -58,12 +58,12 @@ parm_mat[,24] <- qunif(mat[,5],min=parm_mat[,23],max=parm_mat[,25])
 # parm_mat[,26] <- qunif(mat[,6], 0.01, 0.1) # compress l_sd 
 # parm_mat[,27] <- qnorm(mat[,24], 0.008, 0.001) # mutation rate really little! 
 # parm_mat[,27] <- qunif(mat[,24], 0.0001, 0.05) # mutation rate really little! 
-parm_mat[,26] <- qunif(mat[,14], 0.005, 0.01) # mutation rate really little! 
+parm_mat[,26] <- qunif(mat[,14], 0.0005, 0.01) # mutation rate really little! 
 
 parm_mat[,27] <- qunif(mat[,15], 70, 120) # K -- give good range
 parm_mat[,28] <- qunif(mat[,16], 3, 7) # keep K sd pretty small?
 parm_mat[,29] <- rep(120) # d_0 as whole number
-parm_mat[,30] <- ceiling(qunif(mat[,17], 1, 5)) # 2-5 disease cycles
+parm_mat[,30] <- ceiling(qunif(mat[,17], 2, 6)) # 2-5 disease cycles
 parm_mat[,31] <- rep(0.1) # init r small 
 parm_mat[,32] <- qunif(mat[,19], 0.05, 0.15) # proportion of I individuals (set to 0.1 in rep'd sims, if at 0 means 1 individual starts as infected)
 parm_mat[,33] <- rep(160) # ngens between 120-140
@@ -71,31 +71,26 @@ parm_mat[,33] <- rep(160) # ngens between 120-140
 # deal with pathways
 # 1: mortality, 2: transmission, 3: clearance
 # 4: M+T, 5: M+C, 6: T+C, 7: M+T+C
+# also deal with f_WW values
 for (i in 1:dim(parm_mat)[1]) {
-  if (parm_mat[i,36] %in% c(2, 3, 6)) parm_mat[i,14:15] <- parm_mat[i,16] # no mortality: m_IWW == m_SWW
-  if (parm_mat[i,36] %in% c(1, 3, 5)) parm_mat[i,3:4] <- parm_mat[i,5] # no transmission: density
-  if (parm_mat[i,36] %in% c(1, 3, 5)) parm_mat[i,7:8] <- parm_mat[i,9] # no transmission: freq
-  if (parm_mat[i,36] %in% c(1, 2, 4)) parm_mat[i,19:20] <- parm_mat[i,21] # no clearance
+  if (parm_mat[i,35] %in% c(2, 3, 6)) parm_mat[i,14:15] <- parm_mat[i,16] # no mortality: m_IWW == m_SWW
+  if (parm_mat[i,35] %in% c(1, 3, 5)) parm_mat[i,3:4] <- parm_mat[i,5] # no transmission: density
+  if (parm_mat[i,35] %in% c(1, 3, 5)) parm_mat[i,7:8] <- parm_mat[i,9] # no transmission: freq
+  if (parm_mat[i,35] %in% c(1, 2, 4)) parm_mat[i,19:20] <- parm_mat[i,21] # no clearance
+  if (parm_mat[i, 3] < 0) parm_mat[i, 3:5] <- -2 # if negative, take as no reservior
 }
 
 for (i in 1:dim(parm_mat)[1]) {
   # if there's any SIX w/only pathway 3, split between 1 & 2
-  if (parm_mat[i,36]==3 & parm_mat[i, 1]==1) parm_mat[i, 36] <- sample(1:2, 1)
+  if (parm_mat[i,35]==3 & parm_mat[i, 1]==1) parm_mat[i, 35] <- sample(1:2, 1)
   # don't worry if 4-7, will just become 1-2 pathways
-}
-
-# density dependence only
-parm_mat[,34] <- ceiling(qunif(mat[,20], min = 0, max = 3)) # 1 = density only, 2 = freq only, 3 = both
-for (i in 1:dim(parm_mat)[1]) {
-  if (parm_mat[i,34] == 1) parm_mat[i,3:5] <- -1 # density only
-  if (parm_mat[i,34] == 2) parm_mat[i,7:9] <- -1 # freq only
 }
 
 # check for zeros & replace them
 parm_mat[which(parm_mat[,c(1:2, 6, 10:29)]<0)] = 0 # allow environment to go negative, but nothing else
 
 # indexing
-parm_mat[,35] <- 1:N # this will be parm_num
+parm_mat[,34] <- 1:N # this will be parm_num
 
 bd_mat <- as.data.frame(mat[, c(4,5,6,18)])
 bd_mat$parm_number <- 1:N; colnames(bd_mat) <- c("benefit", "dominance", "stand_dev", "cost", "number")
@@ -107,5 +102,5 @@ bd_mat$cost <- qunif(mat[,18], 0.5, 1)
 
 # saved as sensitivity_data/mat_var.RDS
 # 0131 saveRDS(parm_mat, "dat/mat_var_0131.Rdata")
-saveRDS(parm_mat, "dat/mat_var_0204.Rdata")
-saveRDS(bd_mat, "dat/mat_bd_0204.Rdata")
+saveRDS(parm_mat, "dat/mat_var_0604.Rdata")
+saveRDS(bd_mat, "dat/mat_bd_0604.Rdata")

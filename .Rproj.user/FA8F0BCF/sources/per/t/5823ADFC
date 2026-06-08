@@ -1,0 +1,26 @@
+{
+    "id": "5823ADFC",
+    "path": "C:/Users/lauri/Documents/GitHub/hostpath_ER/sens/02_run_randomForest.R",
+    "project_path": "sens/02_run_randomForest.R",
+    "type": "r_source",
+    "hash": "1261418427",
+    "contents": "",
+    "dirty": false,
+    "created": 1780769688191.0,
+    "source_on_save": false,
+    "relative_order": 5,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "279,38",
+        "scrollLine": "270"
+    },
+    "folds": "208|16|251|0|\n213|50|216|2|\n217|57|220|2|\n",
+    "lastKnownWriteTime": 1780888506,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1780888506717,
+    "read_only": false,
+    "read_only_alternatives": []
+}

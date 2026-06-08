@@ -6,13 +6,13 @@ library(parallel) #for using multiple cores (mclapply for mac and linux, parLapp
 source("funcs/00_model_cluster.R")
 
 # load in data
-parm_mat <- readRDS("dat/mat_var_0204.Rdata")
+parm_mat <- readRDS("dat/mat_var_0604.Rdata")
 # head(parm_mat)
 # for comparing simulations, grab the first 200 parameters and simulate them another 1000 times
 parm_mat <- parm_mat[1:200, ]
 N <- dim(parm_mat)[1]
 
-rep_num <- 2500 # for gsa, run sets 200, 400, 400, 500x3 = 2500
+rep_num <- 2500 # for gsa, run sets 500x5 = 2500
 rep_parm <- matrix(rep(t(parm_mat), rep_num), ncol = ncol(parm_mat), byrow = T)
 
 # run functions across parm_mat
@@ -20,7 +20,7 @@ print("starting simulations")
 
 gsa_result <- mclapply(1:(N*rep_num), function(i){
   # 
-  case_vect <- rep_parm[i, c(1:33, 35)] # skip density dependence only, since that manipulates parameters when making the matrix
+  case_vect <- rep_parm[i, c(1:34)] # skip density dependence only, since that manipulates parameters when making the matrix
   
   cluster_run(case_vect) 
   

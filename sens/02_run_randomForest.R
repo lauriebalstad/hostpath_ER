@@ -10,110 +10,46 @@ library(cowplot)
 library(randomForestSRC)
 # library(sensobol)
 
-# loading the data -- note weird directory because of HPC use
-sum_a <- readRDS("dat/gsa_result_0213-2329.Rdata")
-sum_b <- readRDS("dat/gsa_result_0213-1944.Rdata")
-sum_c <- readRDS("dat/gsa_result_0218-2359.Rdata")
-sum_d <- readRDS("dat/gsa_result_0219-0152.Rdata")
-sum_e <- readRDS("dat/gsa_result_0219-0407.Rdata")
-random_parms <- readRDS("dat/mat_var_0204.Rdata") # figure out what these values were converging around....? new values have super little er
-bd_parms <- readRDS("dat/mat_bd_0204.Rdata") # figure out what these values were converging around....? new values have super little er
+# loading the data -
+sum_a <- readRDS("dat/gsa_result_0605-1547.Rdata")
+sum_b <- readRDS("dat/gsa_result_0606-1626.Rdata")
+sum_c <- readRDS("dat/gsa_result_0606-0502.Rdata")
+sum_d <- readRDS("dat/gsa_result_0607-1214.Rdata")
+sum_e <- readRDS("dat/gsa_result_0606-1934.Rdata")
+random_parms <- readRDS("dat/mat_var_0604.Rdata") # figure out what these values were converging around....? new values have super little er
+bd_parms <- readRDS("dat/mat_bd_0604.Rdata") # figure out what these values were converging around....? new values have super little er
 
-# convert to df
-a_dtf <- as.data.frame(matrix(unlist(sum_a), ncol = 22, byrow = T))
-colnames(a_dtf) <- c("extinct", 
-                     "pop_drop20", "pop_drop50", # "pop_drop80",
-                     "r_allele_peak15", "r_allele_peak45", #"r_allele_peak75",
-                     "final_r_allele", 
-                     "final_pop_size", "final_inf_prev",
-                     "max_r_allele", # "time_max_r_allele",
-                     "max_inf_prev", "time_last_zero_inf",
-                     "min_pop", "time_min_pop",
-                     "first_20", "first_50", # "first_80",
-                     "last_20", "last_50", # "last_80",
-                     "tot_20", "tot_50", #"to t_80",
-                     "at_K95", "firstK95",
-                     # "r_ts_d0", 
-                     "parm_number")
-
-b_dtf <- as.data.frame(matrix(unlist(sum_b), ncol = 22, byrow = T))
-colnames(b_dtf) <- c("extinct", 
-                     "pop_drop20", "pop_drop50", # "pop_drop80",
-                     "r_allele_peak15", "r_allele_peak45", #"r_allele_peak75",
-                     "final_r_allele", 
-                     "final_pop_size", "final_inf_prev",
-                     "max_r_allele", # "time_max_r_allele",
-                     "max_inf_prev", "time_last_zero_inf",
-                     "min_pop", "time_min_pop",
-                     "first_20", "first_50", # "first_80",
-                     "last_20", "last_50", # "last_80",
-                     "tot_20", "tot_50", #"to t_80",
-                     "at_K95", "firstK95",
-                     # "r_ts_d0", 
-                     "parm_number")
-
-c_dtf <- as.data.frame(matrix(unlist(sum_c), ncol = 22, byrow = T))
-colnames(c_dtf) <- c("extinct", 
-                     "pop_drop20", "pop_drop50", # "pop_drop80",
-                     "r_allele_peak15", "r_allele_peak45", #"r_allele_peak75",
-                     "final_r_allele", 
-                     "final_pop_size", "final_inf_prev",
-                     "max_r_allele", # "time_max_r_allele",
-                     "max_inf_prev", "time_last_zero_inf",
-                     "min_pop", "time_min_pop",
-                     "first_20", "first_50", # "first_80",
-                     "last_20", "last_50", # "last_80",
-                     "tot_20", "tot_50", #"to t_80",
-                     "at_K95", "firstK95",
-                     # "r_ts_d0", 
-                     "parm_number")
-
-d_dtf <- as.data.frame(matrix(unlist(sum_d), ncol = 22, byrow = T))
-colnames(d_dtf) <- c("extinct", 
-                     "pop_drop20", "pop_drop50", # "pop_drop80",
-                     "r_allele_peak15", "r_allele_peak45", #"r_allele_peak75",
-                     "final_r_allele", 
-                     "final_pop_size", "final_inf_prev",
-                     "max_r_allele", # "time_max_r_allele",
-                     "max_inf_prev", "time_last_zero_inf",
-                     "min_pop", "time_min_pop",
-                     "first_20", "first_50", # "first_80",
-                     "last_20", "last_50", # "last_80",
-                     "tot_20", "tot_50", #"to t_80",
-                     "at_K95", "firstK95",
-                     # "r_ts_d0", 
-                     "parm_number")
-
-e_dtf <- as.data.frame(matrix(unlist(sum_e), ncol = 22, byrow = T))
-colnames(e_dtf) <- c("extinct", 
-                     "pop_drop20", "pop_drop50", # "pop_drop80",
-                     "r_allele_peak15", "r_allele_peak45", #"r_allele_peak75",
-                     "final_r_allele", 
-                     "final_pop_size", "final_inf_prev",
-                     "max_r_allele", # "time_max_r_allele",
-                     "max_inf_prev", "time_last_zero_inf",
-                     "min_pop", "time_min_pop",
-                     "first_20", "first_50", # "first_80",
-                     "last_20", "last_50", # "last_80",
-                     "tot_20", "tot_50", #"to t_80",
-                     "at_K95", "firstK95",
-                     # "r_ts_d0", 
-                     "parm_number")
-
-# put together
-sim_dat <- rbind(a_dtf, b_dtf, c_dtf, d_dtf, e_dtf) # just one???
+sum_dat <- matrix(c(unlist(sum_a), 
+                    unlist(sum_b), 
+                    unlist(sum_c), 
+                    unlist(sum_d), 
+                    unlist(sum_e)), ncol = 27, byrow = T)
+colnames(sum_dat) <- c("extinct", 
+                       "pop_drop20", "pop_drop50", "pop_drop80",
+                       "r_allele_peak15", "r_allele_peak45", "r_allele_peak75",
+                       "final_r_allele", 
+                       # "final_pop_size", 
+                       "final_inf_prev",
+                       "max_r_allele", # "time_max_r_allele",
+                       "max_inf_prev", "time_last_zero_inf",
+                       "min_pop", "time_min_pop",
+                       "first_20", "first_50", "first_80",
+                       "last_20", "last_50", "last_80",
+                       "tot_20", "tot_50", "tot_80",
+                       "at_K95", "firstK95",
+                       "r_ts_d0", 
+                       "parm_number")
 
 # change -1s back to 0 bc that's their true rate for random_parms
 random_parms <- as.data.frame(random_parms)
 for (i in 1:dim(random_parms)[1]) {
-  if (all(random_parms[i,3:5] == -1)) random_parms[i,3:5] <- 0 
-  if (all(random_parms[i,7:9] == -1)) random_parms[i,7:9] <- 0
+  if (all(random_parms[i,3:5] == -2)) random_parms[i,3:5] <- 0 
 }
 
 # trying as a classifier
 # set up data: merge parameters (V35) and simulated data (parm_number)
-RF_class <- merge(random_parms, sim_dat, by.x = "V35", by.y = "parm_number")
-RF_class <- merge(RF_class, bd_parms, by.x = "V35", by.y = "number")
+RF_class <- merge(random_parms, sum_dat, by.x = "V34", by.y = "parm_number")
+RF_class <- merge(RF_class, bd_parms, by.x = "V34", by.y = "number")
 # rename things (note need to keep these nice for RF)
 colnames(RF_class) <- c("param_num", "compartments", "order", 
                         "B_F_RR", "B_F_WR", "B_F_WW", "SD_B_F", 
@@ -123,37 +59,33 @@ colnames(RF_class) <- c("param_num", "compartments", "order",
                         "L_RR", "L_WR", "L_WW", "mutation",
                         "K", "SD_K",
                         "init_time", "disease_gen", 
-                        "init_allele", "init_inif", "final_time", "transmission_cat", "adaptive_cat", colnames(RF_class[37:61]))
+                        "init_allele", "init_inif", "final_time", "adaptive_cat", colnames(RF_class[36:65]))
 # note the the variables that are categorical
 RF_class$"compartments" <- as.factor(RF_class$"compartments")
 RF_class$"order" <- as.factor(RF_class$"order")
-RF_class$"transmission_cat" <- as.factor(RF_class$"transmission_cat")
 RF_class$"adaptive_cat" <- as.factor(RF_class$"adaptive_cat")
 
 # figure out classifications
 RF_class$ER <- ifelse(RF_class$extinct == 0 & 
                         RF_class$pop_drop50 == 1 & 
-                        abs(RF_class$last_50-RF_class$first_50-RF_class$tot_50) < 0.5*RF_class$tot_50 & 
+                        abs(RF_class$last_50-RF_class$first_50-RF_class$tot_50) < 0.8*RF_class$tot_50 & 
                         RF_class$tot_50 > 3 & 
                         RF_class$at_K95 == 1 & 
-                        RF_class$r_allele_peak45 == 1 & 
-                        # RF_class$final_inf_prev > 0.05, 
-                        RF_class$final_r_allele > RF_class$max_r_allele*0.75, # doing the ER v. T_ER more by final allele... pretty generous
+                        RF_class$r_allele_peak45 == 1, 
                       1, 0) 
 
 RF_class$T_ER <- ifelse(RF_class$extinct == 0 & 
-                        RF_class$pop_drop50 == 1 & 
-                        abs(RF_class$last_50-RF_class$first_50-RF_class$tot_50) < 0.5*RF_class$tot_50 & 
-                        RF_class$tot_50 > 3 & 
-                        RF_class$at_K95 == 1 & 
-                        RF_class$r_allele_peak45 == 1 & 
-                        # RF_class$final_inf_prev < 0.05, 
-                        RF_class$final_r_allele < RF_class$max_r_allele*0.75, # doing the ER v. T_ER more by final allele... pretty generous
-                        1, 0) 
+                          RF_class$pop_drop50 == 1 & 
+                          abs(RF_class$last_50-RF_class$first_50-RF_class$tot_50) < 0.8*RF_class$tot_50 & 
+                          RF_class$tot_50 > 3 & 
+                          RF_class$at_K95 == 1 & 
+                          RF_class$r_allele_peak45 == 1 & 
+                          RF_class$final_r_allele < 0.1 & RF_class$final_inf_prev < 0.1, 
+                        1, 0) # <1% of outcomes
 
 RF_class$IL <- ifelse(RF_class$extinct == 0 & 
                         RF_class$pop_drop50 == 1 & 
-                        abs(RF_class$last_50-RF_class$first_50-RF_class$tot_50) < 0.5*RF_class$tot_50 & 
+                        abs(RF_class$last_50-RF_class$first_50-RF_class$tot_50) < 0.8*RF_class$tot_50 & 
                         RF_class$tot_50 > 3 & 
                         RF_class$at_K95 == 1 & 
                         RF_class$r_allele_peak45 == 0 & 
@@ -165,112 +97,90 @@ RF_class$Ext <- RF_class$extinct
 
 RF_class$NR <- ifelse(RF_class$extinct == 0 &
                       RF_class$pop_drop50 == 0 & 
-                      RF_class$at_K == 1, 1, 0) 
+                      RF_class$at_K == 1, 1, 0) # is very small!
 
 RF_class$clss <- ifelse(RF_class$Ext == 1, "Ext", 
                         ifelse(RF_class$ER == 1, "ER", 
-                               ifelse(RF_class$T_ER == 1, "T_ER", 
                                ifelse(RF_class$IL == 1, "IL",
-                                      ifelse(RF_class$NR == 1, "NR", "UNK"))))) # ~20% unknowns
+                                      ifelse(RF_class$NR == 1, "NR", "UNK")))) # about 9% unknown
 
 RF_class$clss <- as.factor(RF_class$clss) 
 # plot(RF_class$clss) # mostly ER, extinction, some NR/UNK
 
-# grab subset (uncorrelated variables) to run RF on
-# pred_vars <- c(2, 3, 6, 7, 10, 11, 14, 17, 18, 19, 22, 23, 26:29, 31, 33, 35, 36, 58:61)
-# RF_df <- cbind(RF_class[, pred_vars], RF_class$clss)
-# colnames(RF_df) <- c(colnames(RF_df)[1:24], "clss")
-
-# alternatively, try distributed random forest, which deals with the fact that the outcome is a distribution not a category
+# try distributed random forest, which deals with the fact that the outcome is a distribution not a category
 # make outcome matrix
 # get probabilities
-p_ex <- RF_class %>% group_by(param_num) %>% summarise(p_ex = mean(Ext))
-p_er <- RF_class %>% group_by(param_num) %>% summarise(p_er = mean(ER))
-p_ter <- RF_class %>% group_by(param_num) %>% summarise(p_ter = mean(T_ER))
-p_il <- RF_class %>% group_by(param_num) %>% summarise(p_il = mean(IL))
-p_nr <- RF_class %>% group_by(param_num) %>% summarise(p_nr = mean(NR))
-p_uk <- RF_class %>% group_by(param_num) %>% summarise(p_uk = sum(clss=="UNK")/2500) # change to n sims
+p_ex <- RF_class %>% group_by(param_num) %>% summarise(p_ex = sum(Ext)/2500)
+p_er <- RF_class %>% group_by(param_num) %>% summarise(p_er = sum(ER)/2500)
+p_il <- RF_class %>% group_by(param_num) %>% summarise(p_il = sum(IL)/2500)
+p_nr <- RF_class %>% group_by(param_num) %>% summarise(p_nr = sum(NR)/2500)
+p_uk <- RF_class %>% group_by(param_num) %>% summarise(p_uk = sum(clss=="UNK")/2500) 
 # merge everyone
 tmp <- merge(p_ex, p_er, all = T)
-tmp <- merge(tmp, p_ter, all = T)
 tmp <- merge(tmp, p_il, all = T)
 tmp <- merge(tmp, p_nr, all = T)
 out_mat <- merge(tmp, p_uk, all = T)
 # check that out_mat is adding to 1
-tmp_check <- out_mat %>% mutate(tot_prob = p_ex + p_er + p_ter + p_il + p_nr + p_uk); range(tmp_check$tot_prob)
+tmp_check <- out_mat %>% mutate(tot_prob = p_ex + p_er + p_il + p_nr + p_uk); range(tmp_check$tot_prob)
 # clean up the input data -- only need one row for each now
-pred_vars <- c(2, 3, 6, 10, 14, 17, 22, 26:29, 31, 33, 35, 36, 58:61)
+pred_vars <- c(2, 3, 6, 10, 14, 17, 22, 26:35, 62:65)
 in_mat <- RF_class[seq(from = 1, to = dim(RF_class)[1], by = 2500), pred_vars]
 
 # now run the forest
-tmp_df <- cbind(in_mat[1:19], out_mat[2:7]) 
-# consider looking into the quantile option?
-# clss_qt <- quantreg(cbind(p_ex, p_er, p_il, p_nr, p_uk) ~ ., data = tmp_df, importance = "permute")
-# note previous effor to use rfscr... not quite sure the difference
-clss_mv <- rfsrc(Multivar(p_ex, p_er, p_ter, p_il, p_nr, p_uk) ~ . + compartments*adaptive_pathway, data = tmp_df, # 
+tmp_df <- cbind(in_mat, out_mat[,2:6]) 
+clss_mv <- rfsrc(Multivar(p_ex, p_er, p_il, p_nr, p_uk) ~ . + compartments*adaptive_pathway, data = tmp_df, # 
                  importance = "permute", ntree = 500)
 plot(clss_mv) # first look for one outcome only!
 imp <- vimp(clss_mv, importance ="permute") # this repeats variable calc from above fyi
 # use ``imp$regrOutput$p_ex$importance`` to get importance for a particular outcome
-# look into holdout.vimp -- maybe more what we're looking for? nope....
-# ho_imp <- holdout.vimp(cbind(p_ex, p_er, p_il, p_nr, p_uk) ~ ., data = tmp_df)
-# also plot.variable -- basically partials for p_er in this case at least
 # plot.variable(clss_mv, m.target = "p_er") 
 saveRDS(clss_mv, "sens/rf_output.Rdata")
 
 # try predicting a few rows of fig1B, to check out how off base things are
 # merge data w/original cases
-str_dat <- readRDS("dat/str_fig_0127.Rdata")
+str_dat <- readRDS("dat/str_fig_0605.Rdata")
 # convert to df
-str_dtf <- as.data.frame(matrix(unlist(str_dat), ncol = 22, byrow = T))
+str_dtf <- as.data.frame(matrix(unlist(str_dat), ncol = 27, byrow = T))
 colnames(str_dtf) <- c("extinct", 
-                       "pop_drop20", "pop_drop50", # "pop_drop80",
-                       "r_allele_peak15", "r_allele_peak45", #"r_allele_peak75",
+                       "pop_drop20", "pop_drop50", "pop_drop80",
+                       "r_allele_peak15", "r_allele_peak45", "r_allele_peak75",
                        "final_r_allele", 
-                       "final_pop_size", "final_inf_prev",
+                       # "final_pop_size", 
+                       "final_inf_prev",
                        "max_r_allele", # "time_max_r_allele",
                        "max_inf_prev", "time_last_zero_inf",
                        "min_pop", "time_min_pop",
-                       "first_20", "first_50", # "first_80",
-                       "last_20", "last_50", # "last_80",
-                       "tot_20", "tot_50", #"to t_80",
+                       "first_20", "first_50", "first_80",
+                       "last_20", "last_50", "last_80",
+                       "tot_20", "tot_50", "tot_80",
                        "at_K95", "firstK95",
-                       # "r_ts_d0", 
+                       "r_ts_d0", 
                        "parm_number")
 
-cases <- expand.grid("transmission type" = 1:2, 
-                     "compartments" = 1:3, # note SIR doesn't seem to have a big effect
-                     "robustness" = 1:4) # 1 = mortality, 2 = transmission, 3 = recovery, 4 = demographic rescue only
+# merge data w/original cases
+cases <- expand.grid("transmission" = c("Density only", "Density w/reservior", "Lasting disease shock"), 
+                     "compartments" = c("Mortality", "Recovery", "Immunity"), # note SIR doesn't seem to have a big effect
+                     "robustness" = c("MB", "TB", "RA", "N")) # 1 = mortality, 2 = transmission, 3 = recovery, 4 = demographic rescue only
 # remove 1/3 compartment/robustness combo
-cases <- cases[c(1:12, 15:24), ]
+cases <- cases[c(1:18, 22:36), ]
 N <- dim(cases)[1]
 cases$number <- 1:N
-tmp <- merge(str_dtf, cases, by.x = "parm_number", by.y = "number", all = T)
-# get summaries to plot
-prob_dat <- tmp %>% group_by(parm_number) %>% 
+# get summaries of each probability to plot
+prob_dat <- str_dtf %>% group_by(parm_number) %>% 
   summarize(`P(Ext)` = sum(extinct)/n()) 
-# er_dat <- tmp %>% filter(extinct == 0 & pop_drop50 == 1 & at_K95 == 1 & r_allele_peak45 == 1) %>% 
-#   group_by(parm_number) %>% 
-#   summarize(`P(ER)` = n()/2500)
-er_dat <- tmp %>% 
+er_dat <- str_dtf %>% 
   group_by(parm_number) %>% 
-  filter(extinct == 0 & abs(last_50-first_50-tot_50) < 0.5*tot_50 & tot_50 > 3 & at_K95 == 1 & r_allele_peak45 == 1 & final_inf_prev > 0 & final_r_allele > 0.75*max_r_allele) %>% 
-  summarize(`P(Persist. ER)` = n()/2500)
-# only care about ER as a general category right now
-er_tmp_dat <- tmp %>%
-  group_by(parm_number) %>%
-  filter(extinct == 0 & abs(last_50-first_50-tot_50) < 0.5*tot_50 & tot_50 > 3 & at_K95 == 1 & r_allele_peak45 == 1 & final_inf_prev == 0 & final_r_allele < 0.75*max_r_allele) %>%
-  summarize(`P(Temp. ER)` = n()/2500)
-il_dat <- tmp %>% filter(extinct == 0 & abs(last_50-first_50-tot_50) < 0.5*tot_50 & tot_50 > 3 & at_K95 == 1 & r_allele_peak45 == 0 & final_inf_prev == 0) %>% 
+  filter(extinct == 0 & abs(last_50-first_50-tot_50+1) < 0.8*tot_50 & tot_50 > 3 & at_K95 == 1 & r_allele_peak45 == 1) %>% 
+  summarize(`P(All ER)` = n()/2500)
+il_dat <- str_dtf %>% filter(extinct == 0 & abs(last_50-first_50-tot_50+1) < 0.8*tot_50 & tot_50 > 3 & at_K95 == 1 & r_allele_peak45 == 0 & final_inf_prev == 0) %>% 
   group_by(parm_number) %>% 
-  summarize(`P(Lose Inf.)` = n()/2500)
+  summarize(`P(IL)` = n()/2500)
 # add in a no risk category
-nr_dat <- tmp %>% filter(extinct == 0 & pop_drop50 == 0 & at_K95 == 1) %>% 
+nr_dat <- str_dtf %>% filter(extinct == 0 & pop_drop50 == 0 & at_K95 == 1) %>% 
   group_by(parm_number) %>% 
   summarize(`P(NR)` = n()/2500)
 # merge
 tmp <- merge(prob_dat, er_dat, by = c("parm_number"), all = T)
-tmp <- merge(tmp, er_tmp_dat, by = c("parm_number"), all = T)
 tmp <- merge(tmp, il_dat, by = c("parm_number"), all = T)
 tmp <- merge(tmp, nr_dat, by = c("parm_number"), all = T)
 plot_dat <- merge(tmp, cases, by.x = c("parm_number"), by.y = "number")
@@ -280,46 +190,46 @@ plot_dat[is.na(plot_dat)] <- 0 # replace things
 base_vect <- c(2, 4, # compartments, event order
                -1, -1, # freq & density transmission rate WW
                0.05, 1, # mortality WW
-               0.05,  # recovery WW 
+               0.05,  # (7) recovery WW 
                1, # reproduction WW 
                0.005, # mutation
-               100, 4, # pop size w/sds
+               100, 4, # (10) pop size w/sds
+               120, 
                4, # disease gen
-               0.1, # init inf
-               0, # transmission type -- will update
+               0.05, 0.1, # allele & inf inits
+               160, # final time
                0, 1, # pathway, benefit
                0.5, # dominance
-               0.05, # general sd
-               0.5) # cost
+               0.05, # (20) general sd
+               0.7) # cost
 pred_results_str <- NULL
-rep_cases <- cases
+rep_cases <- cases %>% filter(transmission != "Lasting disease shock")
+N <- dim(rep_cases)[1]
 # loop through w predict
 for (i in 1:N) {
   
   case_vect <- base_vect
   
   # set disease transmission
-  if (rep_cases$`transmission type`[i]==1) {
-    case_vect[4] <- 1.25 # transmission increased (dens)
+  if (rep_cases$transmission[i]=="Density only") {
+    case_vect[4] <- 1 # transmission increased (dens)
     case_vect[3] <- 0 # by def for this figure/RF
-    case_vect[14] <- 1
   }
-  if (rep_cases$`transmission type`[i]==2) {
-    case_vect[3] <- 2 # transmission increased (freq)
-    case_vect[4] <- 0
-    case_vect[14] <- 2
+  if (rep_cases$transmission[i]=="Density w/reservior") {
+    case_vect[3] <- 0.05 # transmission increased (freq)
+    case_vect[4] <- 1
   }
   if (rep_cases$robustness[i] == 1) {
-    case_vect[15] <- 1
-    case_vect[16] <- 0 # benefit is defined as the wild type*benefit for robust type (100% reduction here)
+    case_vect[17] <- 1
+    case_vect[18] <- 0 # benefit is defined as the wild type*benefit for robust type (100% reduction here)
   } # 1 = mortality
   if (rep_cases$robustness[i] == 2) {
-    case_vect[15] <- 2
-    case_vect[16] <- 0 # benefit is defined as the wild type*benefit for robust type (100% reduction here)
+    case_vect[17] <- 2
+    case_vect[18] <- 0 # benefit is defined as the wild type*benefit for robust type (100% reduction here)
   } # 1 = transmission
   if (rep_cases$robustness[i] == 3) {
-    case_vect[15] <- 3
-    case_vect[16] <- 0.44 # benefit is defined as the wild type*benefit for robust type (100% reduction here)
+    case_vect[17] <- 3
+    case_vect[18] <- 0.5 # benefit is defined as the wild type*benefit for robust type (100% reduction here)
   } # 1 = recovery, nb: recovery higher
   
   # modify base parameters -- compartment
@@ -343,35 +253,46 @@ for (i in 1:N) {
 # organize so it's matching w plot_long
 pred_results_str <- as.data.frame(pred_results_str)
 pred_results_str <- cbind(rep_cases$number, pred_results_str)
-colnames(pred_results_str) <- c("parm_number", "P(Persist. ER)", "P(Temp. ER)", "P(Ext)", "P(Lose Inf.)", "P(NR)", "Unknown")
+colnames(pred_results_str) <- c("parm_number", "P(All ER)", "P(Ext)", "P(IL)", "P(NR)", "Inconclusive")
 # double check that things are adding to 1
-pred_check <- apply(pred_results_str[, 2:7], 1, sum); range(pred_check)
+pred_check <- apply(pred_results_str[, 2:6], 1, sum); range(pred_check)
 pred_dat <- merge(pred_results_str, cases, by.x = c("parm_number"), by.y = "number")
 
 # pivot longer for both
 pred_dat$shp <- rep("RF predicted")
 plot_dat$shp <- rep("full sim.")
-plot_long <- pivot_longer(plot_dat, cols = 2:6, names_to = "outcome", values_to = "value")
-pred_long <- pivot_longer(pred_dat[, c(1:6, 8:11)], cols = 2:6, names_to = "outcome", values_to = "value") # ignore unks
+plot_long <- pivot_longer(plot_dat, cols = 2:5, names_to = "outcome", values_to = "value")
+pred_long <- pivot_longer(pred_dat, cols = 2:6, names_to = "outcome", values_to = "value") # ignore unks
 dat_long <- rbind(plot_long, pred_long)
 
-# rename
-dat_long$compartments <- recode(dat_long$compartments, "1" = "mortality", "2" = "recovery", "3" = "immunity")
-dat_long$compartments <- factor(dat_long$compartments, levels = c("mortality", "recovery", "immunity"))
-dat_long$`transmission type` <- recode(dat_long$`transmission type`, "1" = "density", "2" = "environmental", "3" = "density + environmental")
-dat_long$robustness <- recode(dat_long$robustness, "1" = "MB", "2" = "TB", "3" = "RA", "4" = "N")
-dat_long$`evolutionary pathway` <- factor(dat_long$robustness, levels = c("N", "TB", "MB", "RA"))
-# dat_long$outcome_f <- factor(dat_long$outcome, levels = c("P(Ext)", "P(ER)", "P(ER, Temp.)", "P(IL)", "P(NR)"))
-
 # points plot -- note RF doesn't know what N is, so drop that from this comp
-comp_sim_pred <- ggplot(dat_long %>% filter(as.character(`evolutionary pathway`) != "N"), aes(`evolutionary pathway`, value, col = `transmission type`, pch = shp)) + 
-  # coord_cartesian(ylim = c(0, NA)) +
-  geom_point(size = 2) + scale_color_manual(values = c("#ac1457", "#f1c4a2")) +
+comp_sim_pred <- ggplot(dat_long %>% filter(as.character(robustness) != "N" & 
+                                            transmission != "Lasting disease shock"), 
+                        aes(robustness, value, col = shp, pch = transmission)) + 
+  geom_point(size = 2.25, position = position_dodge(width = 0.7)) + 
+  scale_color_manual(values = c("black", "gray80")) +
+  scale_shape_manual(values = c(15, 16)) + 
   facet_grid(rows = vars(outcome), cols = vars(compartments)) + 
-  labs(x = "Adaptive pathway", y = "Probability", col = "Transmission type", pch = "Calc. source") + 
-  theme_bw()  + 
-  theme(text = element_text(size = 11), legend.position = "bottom") 
+  labs(x = "Adaptive pathway", y = "Probability", col = "Calc. source", pch = "Transmission") + 
+  theme_bw(base_size = 12) + 
+  theme(legend.position = "bottom", 
+        legend.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "pt"),
+        legend.key.spacing.y = unit(0, "pt")) + 
+  labs(x = "Mutant allele benefit\n(percent change in rate)", y = NULL)
 
-png("figs/figure_plot/SUPP_rfcomp_0220.png",height=170,width=170,res=400,units='mm')
+pdf("figs/figure_plot/figS4_HP.pdf",height=175/25.4,width=170/25.4)
 print(comp_sim_pred)
 dev.off()
+
+# using information from 02_run_randomForest
+RF_class$clss <- recode(RF_class$clss, "IL" = "Inf. Loss", "UNK" = "Inconclusive")
+figS2 <- ggplot(RF_class, aes(x = clss, fill = clss)) + geom_bar() + 
+  scale_fill_manual(values = c("#DB6341", "#ac1457", "#f1c4a2", "gray40", "gray80")) +
+  theme_bw(base_size = 12) + labs(x = "Classification") + 
+  theme(legend.position = "none", 
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
+
+pdf("figs/figure_plot/figS2_HP.pdf",height=90/25.4,width=85/25.4)
+print(figS2)
+dev.off()
+

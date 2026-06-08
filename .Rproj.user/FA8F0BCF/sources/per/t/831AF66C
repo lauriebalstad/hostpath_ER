@@ -3,24 +3,24 @@
     "path": "C:/Users/lauri/Documents/GitHub/hostpath_ER/figs/figure_plot/02_plt_fig.R",
     "project_path": "figs/figure_plot/02_plt_fig.R",
     "type": "r_source",
-    "hash": "4021606111",
+    "hash": "1747756681",
     "contents": "",
     "dirty": false,
     "created": 1769102546610.0,
     "source_on_save": false,
-    "relative_order": 5,
+    "relative_order": 3,
     "properties": {
         "source_window_id": "",
         "Source": "Source",
-        "cursorPosition": "251,7",
-        "scrollLine": "244"
+        "cursorPosition": "418,66",
+        "scrollLine": "409"
     },
-    "folds": "433|21|507|0|\n508|26|598|0|\n",
-    "lastKnownWriteTime": 1780437938,
+    "folds": "9|28|88|0|\n89|29|167|0|\n492|26|569|0|\n",
+    "lastKnownWriteTime": 1780888384,
     "encoding": "UTF-8",
     "collab_server": "",
     "source_window": "",
-    "last_content_update": 1780437938523,
+    "last_content_update": 1780888384654,
     "read_only": false,
     "read_only_alternatives": []
 }
