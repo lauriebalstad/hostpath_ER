@@ -11,11 +11,12 @@ library(randomForestSRC)
 # library(sensobol)
 
 # loading the data -
-sum_a <- readRDS("dat/gsa_result_0605-1547.Rdata")
-sum_b <- readRDS("dat/gsa_result_0606-1626.Rdata")
-sum_c <- readRDS("dat/gsa_result_0606-0502.Rdata")
-sum_d <- readRDS("dat/gsa_result_0607-1214.Rdata")
-sum_e <- readRDS("dat/gsa_result_0606-1934.Rdata")
+sum_a <- readRDS("dat/gsa_result_0611-0009.Rdata")
+sum_b <- readRDS("dat/gsa_result_0611-0642.Rdata")
+sum_c <- readRDS("dat/gsa_result_0611-0429.Rdata")
+sum_d <- readRDS("dat/gsa_result_0611-1023.Rdata")
+sum_e <- readRDS("dat/gsa_result_0611-1155.Rdata")
+re_run <- readRDS("dat/gsa_result_0613-0040.Rdata")
 random_parms <- readRDS("dat/mat_var_0604.Rdata") # figure out what these values were converging around....? new values have super little er
 bd_parms <- readRDS("dat/mat_bd_0604.Rdata") # figure out what these values were converging around....? new values have super little er
 
@@ -135,6 +136,81 @@ imp <- vimp(clss_mv, importance ="permute") # this repeats variable calc from ab
 # use ``imp$regrOutput$p_ex$importance`` to get importance for a particular outcome
 # plot.variable(clss_mv, m.target = "p_er") 
 saveRDS(clss_mv, "sens/rf_output.Rdata")
+
+rr_dtf <- as.data.frame(matrix(unlist(re_run), ncol = 27, byrow = T))
+colnames(rr_dtf) <- c("extinct", 
+                       "pop_drop20", "pop_drop50", "pop_drop80",
+                       "r_allele_peak15", "r_allele_peak45", "r_allele_peak75",
+                       "final_r_allele", 
+                       # "final_pop_size", 
+                       "final_inf_prev",
+                       "max_r_allele", # "time_max_r_allele",
+                       "max_inf_prev", "time_last_zero_inf",
+                       "min_pop", "time_min_pop",
+                       "first_20", "first_50", "first_80",
+                       "last_20", "last_50", "last_80",
+                       "tot_20", "tot_50", "tot_80",
+                       "at_K95", "firstK95",
+                       "r_ts_d0", 
+                       "param_num")
+
+
+# calc probs and merge for ext, er, il
+rr_pex <- rr_dtf %>% filter(extinct == 1) %>% group_by(param_num) %>% summarise(`P(Ex)-Alt` = n()/2500)
+fig_ex <- merge(rr_pex, out_mat %>% filter(param_num < 201), by = "param_num", all = T) # NB: not keeping parameter row when both are zeros... get those back in!
+fig_ex$diff_ex <- ifelse(is.na(fig_ex$`P(Ex)-Alt`), 0, fig_ex$`P(Ex)-Alt`) - ifelse(is.na(fig_ex$p_ex), 0, fig_ex$p_ex)
+
+rr_per <- rr_dtf %>% filter(extinct == 0 & 
+                            abs(last_50-first_50-0.8*tot_50+1) > 0 & 
+                            tot_50 > 3 & at_K95 == 1 & 
+                            r_allele_peak45 == 1) %>% 
+  group_by(param_num) %>% summarise(`P(ER)-Alt` = n()/2500)
+fig_er <- merge(rr_per, out_mat %>% filter(param_num < 201), by = "param_num", all = T) # NB: not keeping parameter row when both are zeros... get those back in!
+fig_er$diff_er <- ifelse(is.na(fig_er$`P(ER)-Alt`), 0, fig_er$`P(ER)-Alt`) - ifelse(is.na(fig_er$p_er), 0, fig_er$p_er)
+
+rr_pil <- rr_dtf %>% filter(extinct == 0 & 
+                              abs(last_50-first_50-0.8*tot_50+1) > 0 & 
+                              tot_50 > 3 & at_K95 == 1 & 
+                              r_allele_peak45 == 0 & 
+                              final_inf_prev == 0) %>% 
+  group_by(param_num) %>% summarise(`P(IL)-Alt` = n()/2500)
+fig_il <- merge(rr_pil, out_mat %>% filter(param_num < 201), by = "param_num", all = T) # NB: not keeping parameter row when both are zeros... get those back in!
+fig_il$diff_il <- ifelse(is.na(fig_il$`P(IL)-Alt`), 0, fig_il$`P(IL)-Alt`) - ifelse(is.na(fig_il$p_il), 0, fig_il$p_il)
+
+# combine to plot the things
+# add column and pivot longer
+fig_ex_long <- pivot_longer(fig_ex[, c(2, 8)], cols = 2)
+fig_er_long <- pivot_longer(fig_er[, c(2, 8)], cols = 2)
+fig_il_long <- pivot_longer(fig_il[, c(2, 8)], cols = 2)
+fig_ex_long$metric <- rep("P(Ext)")
+fig_er_long$metric <- rep("P(All ER)")
+fig_il_long$metric <- rep("P(IL)")
+fig_long <- rbind(fig_ex_long[, 3:4], fig_er_long[, 3:4], fig_il_long[, 3:4])
+fig_long$metric <- factor(fig_long$metric, levels = c("P(Ext)", "P(All ER)", "P(IL)"))
+# fig_long <- pivot_longer(fig_tot, cols = 2) 
+
+# histograms -- this is the move!
+comp_sim_hist <- ggplot(fig_long, aes(x = value, fill = metric)) + 
+  geom_histogram(col = "black", bins = 25) + 
+  scale_fill_manual(values = c("#ac1457", "#DB6341", "#f1c4a2")) + # almost color matching the main text, e.g., ex as black
+  facet_wrap(~metric, nrow = 3) + 
+  coord_cartesian(xlim = c(-0.05, 0.1)) + 
+  labs(x = "Difference across two test simulations", y = NULL) + 
+  theme_bw(base_size = 9.5) + guides(col = "none") + 
+  theme(legend.position = "none")
+
+# save figure
+pdf("figs/figure_plot/figS1_HP.pdf",height=120/25.4,width=85/25.4)
+print(comp_sim_hist)
+dev.off()
+
+intv <- max(
+  quantile(fig_ex_long$value, c(0.025, 0.975)),
+  quantile(fig_er_long$value, c(0.025, 0.975)),
+  quantile(fig_il_long$value, c(0.025, 0.975))
+)
+intv <- round(intv, 3)
+# use largest for the intervals, throughotu the main sims figures below
 
 # try predicting a few rows of fig1B, to check out how off base things are
 # merge data w/original cases
@@ -275,6 +351,7 @@ comp_sim_pred <- ggplot(dat_long %>% filter(as.character(robustness) != "N" &
   facet_grid(rows = vars(outcome), cols = vars(compartments)) + 
   labs(x = "Adaptive pathway", y = "Probability", col = "Calc. source", pch = "Transmission") + 
   theme_bw(base_size = 12) + 
+  guides(col = guide_legend(nrow = 2), shape = guide_legend(nrow = 2)) + 
   theme(legend.position = "bottom", 
         legend.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "pt"),
         legend.key.spacing.y = unit(0, "pt")) + 

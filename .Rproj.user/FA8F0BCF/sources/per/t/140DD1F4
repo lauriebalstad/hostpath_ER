@@ -1,0 +1,26 @@
+{
+    "id": "140DD1F4",
+    "path": "C:/Users/lauri/Documents/GitHub/hostpath_ER/sens/01_run_GSA_dat.R",
+    "project_path": "sens/01_run_GSA_dat.R",
+    "type": "r_source",
+    "hash": "3614088479",
+    "contents": "",
+    "dirty": false,
+    "created": 1781300635451.0,
+    "source_on_save": false,
+    "relative_order": 4,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "11,29",
+        "scrollLine": "0"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1781300640,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1781300640525,
+    "read_only": false,
+    "read_only_alternatives": []
+}

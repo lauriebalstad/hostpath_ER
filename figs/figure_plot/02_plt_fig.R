@@ -7,88 +7,11 @@ library(ggh4x)
 # library(ggparty) 
 # source("sens/02_run_randomForest.R") # NB: only need through RF_class creation
 
-#-----SUPP: COMP SIMULATIONS-----
-str_dat_A <- readRDS("dat/gsa_result_0220-1006.Rdata")
-# convert to df
-str_dtf_A <- as.data.frame(matrix(unlist(str_dat_A), ncol = 22, byrow = T))
-colnames(str_dtf_A) <- c("extinct", 
-                         "pop_drop20", "pop_drop50", # "pop_drop80",
-                         "r_allele_peak15", "r_allele_peak45", #"r_allele_peak75",
-                         "final_r_allele", 
-                         "final_pop_size", "final_inf_prev",
-                         "max_r_allele", # "time_max_r_allele",
-                         "max_inf_prev", "time_last_zero_inf",
-                         "min_pop", "time_min_pop",
-                         "first_20", "first_50", # "first_80",
-                         "last_20", "last_50", # "last_80",
-                         "tot_20", "tot_50", #"to t_80",
-                         "at_K95", "firstK95",
-                         # "r_ts_d0", 
-                         "parm_number")
-
-# run 02_run_randomForest.R first, that's the combined data for GSAs
-str_dtf_B <- sim_dat %>% filter(parm_number < 201)
-
-# dummy data frame of parameter numbers
-parm_nums <- data.frame(parm_number = 1:200)
-
-# calc probs and merge for ext, er, il
-str_ex_A <- str_dtf_A %>% filter(extinct == 1) %>% group_by(parm_number) %>% summarise(`P(Ex) - A` = n()/2500)
-str_ex_B <- str_dtf_B %>% filter(extinct == 1) %>% group_by(parm_number) %>% summarise(`P(Ex) - B` = n()/2500)
-fig_ex <- merge(str_ex_A, str_ex_B, by = "parm_number", all = T) # NB: not keeping parameter row when both are zeros... get those back in!
-fig_ex <- merge(fig_ex, parm_nums, all = T)
-fig_ex$diff <- ifelse(is.na(fig_ex$`P(Ex) - A`), 0, fig_ex$`P(Ex) - A`) - ifelse(is.na(fig_ex$`P(Ex) - B`), 0, fig_ex$`P(Ex) - B`)
-
-str_er_A <- str_dtf_A %>% filter(extinct == 0 & abs(last_50-first_50-tot_50) <3 & tot_50 > 3 &  at_K95 == 1 & r_allele_peak45 == 1) %>% group_by(parm_number) %>% summarise(`P(ER) - A` = n()/2500)
-str_er_B <- str_dtf_B %>% filter(extinct == 0 & abs(last_50-first_50-tot_50) <3 & tot_50 > 3 &  at_K95 == 1 & r_allele_peak45 == 1) %>% group_by(parm_number) %>% summarise(`P(ER) - B` = n()/2500)
-fig_er <- merge(str_er_A, str_er_B, by = "parm_number", all = T) # NB: not keeping parameter row when both are zeros... get those back in!
-fig_er <- merge(fig_er, parm_nums, all = T)
-fig_er$diff <- ifelse(is.na(fig_er$`P(ER) - A`), 0, fig_er$`P(ER) - A`) - ifelse(is.na(fig_er$`P(ER) - B`), 0, fig_er$`P(ER) - B`)
-
-str_il_A <- str_dtf_A %>% filter(extinct == 0 & abs(last_50-first_50-tot_50) <3 & tot_50 > 3 & at_K95 == 1 & r_allele_peak45 == 0 & final_inf_prev == 0) %>% group_by(parm_number) %>% summarise(`P(Inf. Loss) - A` = n()/2500)
-str_il_B <- str_dtf_B %>% filter(extinct == 0 & abs(last_50-first_50-tot_50) <3 & tot_50 > 3 & at_K95 == 1 & r_allele_peak45 == 0 & final_inf_prev == 0) %>% group_by(parm_number) %>% summarise(`P(Inf. Loss) - B` = n()/2500)
-fig_il <- merge(str_il_A, str_il_B, by = "parm_number", all = T) # NB: not keeping parameter row when both are zeros... get those back in!
-fig_il <- merge(fig_il, parm_nums, all = T)
-fig_il$diff <- ifelse(is.na(fig_il$`P(Inf. Loss) - A`), 0, fig_il$`P(Inf. Loss) - A`) - ifelse(is.na(fig_il$`P(Inf. Loss) - B`), 0, fig_il$`P(Inf. Loss) - B`)
-
-# combine to plot the things
-# add column and pivot longer
-fig_ex_long <- pivot_longer(fig_ex[, c(1, 4)], cols = 2)
-fig_er_long <- pivot_longer(fig_er[, c(1, 4)], cols = 2)
-fig_il_long <- pivot_longer(fig_il[, c(1, 4)], cols = 2)
-fig_ex_long$metric <- rep("P(Ext)")
-fig_er_long$metric <- rep("P(All ER)")
-fig_il_long$metric <- rep("P(Inf. Loss)")
-fig_long <- rbind(fig_ex_long, fig_er_long, fig_il_long)
-fig_long$metric <- factor(fig_long$metric, levels = c("P(Ext)", "P(All ER)", "P(Inf. Loss)"))
-# fig_long <- pivot_longer(fig_tot, cols = 2) 
-
-# histograms -- this is the move!
-comp_sim_hist <- ggplot(fig_long, aes(x = value, fill = metric)) + 
-  geom_histogram(col = "black", bins = 30) + 
-  scale_fill_manual(values = c("gray13", "#ac1457", "#DB6341")) + # almost color matching the main text, e.g., ex as black
-  facet_wrap(~metric, nrow = 3) + 
-  labs(x = "Difference across two test simulations", y = NULL) + 
-  theme_bw() + theme(legend.position = "none", 
-                     axis.text.x = element_text(angle = 45, hjust = 1))
-
-# save figure
-png("figs/figure_plot/SUPP_conv_0220.png",height=170,width=85,res=400,units='mm')
-print(comp_sim_hist)
-dev.off()
-
-# comp_sim_hist
-
-intv <- max(
-  quantile(fig_ex_long$value, c(0.025, 0.975)),
-  quantile(fig_er_long$value, c(0.025, 0.975)),
-  quantile(fig_il_long$value, c(0.025, 0.975))
-  )
-intv <- round(intv, 3)
-# use largest for the intervals, throughotu the main sims figures below
+intv <- 0.027 # from 02_run_randomForest.R
 
 #-----MAIN SIMS: READ IN DATA-----
-str_dat <- readRDS("dat/str_fig_0605.Rdata")
+# str_dat <- readRDS("dat/str_fig_0605.Rdata")
+str_dat <- readRDS("dat/str_fig_0610.Rdata")
 # convert to df
 str_dtf <- as.data.frame(matrix(unlist(str_dat), ncol = 27, byrow = T))
 colnames(str_dtf) <- c("extinct", 
@@ -108,7 +31,8 @@ colnames(str_dtf) <- c("extinct",
                       "parm_number")
 
 # cb_dat <- readRDS("dat/cb_fig_0128.Rdata")
-cb_dat <- readRDS("dat/cb_fig_0606.Rdata")
+# cb_dat <- readRDS("dat/cb_fig_0606.Rdata")
+cb_dat <- readRDS("dat/cb_fig_0610.Rdata")
 # cb_dtf <- as.data.frame(matrix(unlist(cb_dat), ncol = 22, byrow = T))
 cb_dtf <- as.data.frame(matrix(unlist(cb_dat), ncol = 27, byrow = T))
 colnames(cb_dtf) <- c("extinct", 
@@ -128,7 +52,8 @@ colnames(cb_dtf) <- c("extinct",
                        "parm_number")
 
 # dc_dat <- readRDS("dat/dc_fig_0128.Rdata")
-dc_dat <- readRDS("dat/dc_fig_0605.Rdata")
+# dc_dat <- readRDS("dat/dc_fig_0605.Rdata")
+dc_dat <- readRDS("dat/dc_fig_0611.Rdata")
 dc_dtf <- as.data.frame(matrix(unlist(dc_dat), ncol = 27, byrow = T))
 colnames(dc_dtf) <- c("extinct", 
                       "pop_drop20", "pop_drop50", "pop_drop80",
@@ -148,7 +73,8 @@ colnames(dc_dtf) <- c("extinct",
 
 # pm_dat <- readRDS("C:/Users/lauri/AppData/Roaming/MobaXterm/home/evorescue_hostpath_str/dat/pm_fig_d2_0203.Rdata")
 # pm_dat <- readRDS("dat/pm_fig_d2_0203.Rdata")
-pm_dat <- readRDS("dat/pm_fig_0605.Rdata")
+# pm_dat <- readRDS("dat/pm_fig_0605.Rdata")
+pm_dat <- readRDS("dat/pm_fig_0610.Rdata")
 pm_dtf <- as.data.frame(matrix(unlist(pm_dat), ncol = 27, byrow = T))
 colnames(pm_dtf) <- c("extinct", 
                       "pop_drop20", "pop_drop50", "pop_drop80",
@@ -210,17 +136,17 @@ prob_dat <- str_dtf %>% group_by(parm_number) %>%
   summarize(`P(Ext)` = sum(extinct)/n()) 
 er_dat <- str_dtf %>% 
   group_by(parm_number) %>% 
-  filter(extinct == 0 & abs(last_50-first_50-tot_50+1) < 0.8*tot_50 & tot_50 > 3 & at_K95 == 1 & r_allele_peak45 == 1) %>% 
+  filter(extinct == 0 & abs(last_50-first_50-0.8*tot_50+1) > 0 & tot_50 > 3 & at_K95 == 1 & r_allele_peak45 == 1) %>% 
   summarize(`P(All ER)` = n()/2500, 
-            `Time to\nrecovery (ER)` = mean((firstK95-120/3)/3), 
-            upp_qnt = quantile((firstK95-120/3)/3, probs = 0.975),
-            lwr_qnt = quantile((firstK95-120/3)/3, probs = 0.025))
+            `Time to\nrecovery (ER)` = mean((firstK95-160/3)/3), 
+            upp_qnt = quantile((firstK95-160/3)/3, probs = 0.975),
+            lwr_qnt = quantile((firstK95-160/3)/3, probs = 0.025))
 # # note temporary ER also possible--combine for simplicity
 # er_tmp_dat <- str_dtf %>% 
 #   group_by(parm_number) %>%
 #   filter(extinct == 0 & tot_50 > 0.75*abs(last_50-first_50 + 1) & at_K95 == 1 & r_allele_peak45 == 1  & final_r_allele < 0.25 & final_inf_prev < 0.1) %>%
 #   summarize(`P(T-ER)` = n()/2500)
-il_dat <- str_dtf %>% filter(extinct == 0 & abs(last_50-first_50-tot_50+1) < 0.8*tot_50 & tot_50 > 3 & at_K95 == 1 & r_allele_peak45 == 0 & final_inf_prev == 0) %>% 
+il_dat <- str_dtf %>% filter(extinct == 0 & abs(last_50-first_50-0.8*tot_50+1) > 0 & tot_50 > 3 & at_K95 == 1 & r_allele_peak45 == 0 & final_inf_prev == 0) %>% 
   group_by(parm_number) %>% 
   summarize(`P(IL)` = n()/2500)
 # merge summaries together
@@ -304,7 +230,7 @@ imp_plt_short <- imp_plt_long %>% # filtering down to top 8, that look appricabl
                            "res. transmission",
                            "dominance", 
                            "disease gens.",
-                           "trait SD"))
+                           "event order"))
 tmp_plt_short <- imp_plt_short %>% filter(outcome %in% c("P(All ER)", "P(Ext)", "P(IL)"))
 tmp_plt_short$outcome_f <- factor(tmp_plt_short$outcome, levels = c("P(Ext)", "P(All ER)", "P(IL)"))
 
@@ -323,7 +249,7 @@ fig1C <- ggplot(data = tmp_plt_short, aes(`value`, reorder(neat_names, `value`))
 
 fig1_h <- plot_grid(fig1A, fig1B, rel_widths = c(0.5, 1), labels = c("A", "B"))
 fig1 <- plot_grid(fig1_h, fig1C, ncol = 1, rel_heights = c(1, 0.4), labels = c("", "C"))
-# fig1
+fig1
 
 # save figure
 pdf("figs/figure_plot/fig2_HP.pdf",height=160/25.4,width=170/25.4)
@@ -335,7 +261,7 @@ figS3 <- ggplot(data = imp_plt_long, aes(`value`, reorder(neat_names, `value`)))
   geom_linerange(aes(xmin = 0, xmax = `value`)) +
   geom_point(aes(col = outcome), size = 3) + # alt: aes(size = log(IncNodePurity))
   labs(x = NULL, y = NULL, col = "Importance to event:") +
-  scale_color_manual(values = c( "gray80", "#ac1457", "#DB6341",  "#f1c4a2", "gray40")) +
+  scale_color_manual(values = c( "gray80", "#DB6341", "#ac1457",  "#f1c4a2", "gray40")) +
   facet_wrap(~outcome, nrow = 1) +
   theme_bw(base_size = 9.5) + guides(col = "none") + 
   theme(legend.position = "bottom", 
@@ -361,17 +287,17 @@ ex_dat <- cost_ben %>% filter(extinct == 1) %>%
   group_by(benefit, cost, transmission) %>% 
   summarize(`P(Ext)` = n()/2500)
 # again, using "all ER" category
-er_dat <- cost_ben %>% filter(extinct == 0 & abs(last_50-first_50-tot_50+1) < 0.8*tot_50 & tot_50 > 3 & at_K95 == 1 & r_allele_peak45 == 1) %>% 
+er_dat <- cost_ben %>% filter(extinct == 0 & abs(last_50-first_50-0.8*tot_50+1) > 0 & tot_50 > 3 & at_K95 == 1 & r_allele_peak45 == 1) %>% 
   group_by(benefit, cost, transmission) %>% 
   summarize(`P(All ER)` = n()/2500, 
-            `Time to\nrecovery (ER)` = mean((firstK95-120/3)/3), 
-            upp_qnt = quantile((firstK95-120/3)/3, probs = 0.975),
-            lwr_qnt = quantile((firstK95-120/3)/3, probs = 0.025))
+            `Time to\nrecovery (ER)` = mean((firstK95-160/3)/3), 
+            upp_qnt = quantile((firstK95-160/3)/3, probs = 0.975),
+            lwr_qnt = quantile((firstK95-160/3)/3, probs = 0.025))
 # clean up time to recovery--recall that if there's no benefit, no evolution, so no ER to consider
 er_dat$`Time to\nrecovery (ER)` <- ifelse(er_dat$benefit == 0, NA, er_dat$`Time to\nrecovery (ER)`)
 er_dat$upp_qnt <- ifelse(er_dat$benefit == 0, NA, er_dat$upp_qnt)
 er_dat$lwr_qnt <- ifelse(er_dat$benefit == 0, NA, er_dat$lwr_qnt)
-dr_dat <- cost_ben %>% filter(extinct == 0 & abs(last_50-first_50-tot_50+1) < 0.8*tot_50 & tot_50 > 3 & at_K95 == 1 & r_allele_peak45 == 0 & final_inf_prev == 0) %>%    
+dr_dat <- cost_ben %>% filter(extinct == 0 & abs(last_50-first_50-0.8*tot_50+1) > 0 & tot_50 > 3 & at_K95 == 1 & r_allele_peak45 == 0 & final_inf_prev == 0) %>%    
   group_by(benefit, cost, transmission) %>% 
   summarize(`P(IL)` = n()/2500)
 
@@ -409,7 +335,7 @@ fig2 <- ggplot(NULL, aes(x=as.factor(benefit), y=value, col = outcome_f, shape =
         legend.key.spacing.y = unit(0, "pt")) + 
   labs(x = "Mutant allele benefit\n(percent change in rate)", shape = NULL, y = NULL)
 
-# fig2
+fig2
 
 # # save figure
 # png("figs/figure_plot/fig3_0604.png",height=160,width=170,res=400,units='mm')
@@ -438,9 +364,9 @@ ex_dat <- ex_risk %>% filter(extinct == 1) %>%
 er_dat <- ex_risk %>% filter(extinct == 0 & abs(last_50-first_50-tot_50) < 0.8*tot_50 & tot_50 > 3 & at_K95 == 1 & r_allele_peak45 == 1) %>% 
   group_by(parm_number) %>% 
   summarize(`P(All ER)` = n()/2500, 
-            `Time to\nrecovery (ER)` = mean((firstK95-120/3)/3), 
-            upp_qnt = quantile((firstK95-120/3)/3, probs = 0.975),
-            lwr_qnt = quantile((firstK95-120/3)/3, probs = 0.025))
+            `Time to\nrecovery (ER)` = mean((firstK95-160/3)/3), 
+            upp_qnt = quantile((firstK95-160/3)/3, probs = 0.975),
+            lwr_qnt = quantile((firstK95-160/3)/3, probs = 0.025))
 dr_dat <- ex_risk %>% filter(extinct == 0 & abs(last_50-first_50-tot_50) < 0.8*tot_50 & tot_50 > 3 & at_K95 == 1 & r_allele_peak45 == 0 & final_inf_prev == 0) %>%    
   group_by(parm_number) %>% 
   summarize(`P(IL)` = n()/2500)
@@ -478,7 +404,7 @@ fig3 <- ggplot(NULL, aes(x=as.factor(`population size`), y=value, col = outcome_
   guides(shape = guide_legend(nrow = 2)) +
   labs(x = "Population size", shape = NULL, y = NULL)
 
-# fig3
+fig3
 
 # # save figure
 # png("figs/figure_plot/fig4_0604.png",height=160,width=85,res=400,units='mm')
@@ -554,7 +480,7 @@ figS4 <- ggplot(NULL, aes(x=as.factor(`disease cycles`), y=value, col = outcome_
   guides(shape = guide_legend(nrow = 2)) +
   labs(x = "Disease cycles between reproduction", shape = NULL, y = NULL)
 
-# figS4
+figS4
 
 # # save figure
 # png("figs/figure_plot/SUPP_dc_0604.png",height=210,width=170,res=400,units='mm')
