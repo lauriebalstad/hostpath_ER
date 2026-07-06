@@ -255,12 +255,20 @@ il_dat <- str_dtf %>% filter(extinct == 0 & abs(last_50-first_50-tot_50+1) < 0.8
 nr_dat <- str_dtf %>% filter(extinct == 0 & pop_drop50 == 0 & at_K95 == 1) %>% 
   group_by(parm_number) %>% 
   summarize(`P(NR)` = n()/2500)
+# and an inconclusive category
+in_dat <- str_dtf %>% 
+  group_by(parm_number) %>% 
+  filter(extinct == 0 & at_K95 == 0 ) %>% 
+  summarize(`Inconclusive` = n()/2500)
 # merge
 tmp <- merge(prob_dat, er_dat, by = c("parm_number"), all = T)
 tmp <- merge(tmp, il_dat, by = c("parm_number"), all = T)
 tmp <- merge(tmp, nr_dat, by = c("parm_number"), all = T)
+tmp <- merge(tmp, in_dat, by = c("parm_number"), all = T)
 plot_dat <- merge(tmp, cases, by.x = c("parm_number"), by.y = "number")
 plot_dat[is.na(plot_dat)] <- 0 # replace things
+
+# clss_mv <- readRDS("sens/rf_output.Rdata")
 
 # now use predict to predict what those probabilities would be from the RF
 base_vect <- c(2, 4, # compartments, event order
@@ -337,7 +345,7 @@ pred_dat <- merge(pred_results_str, cases, by.x = c("parm_number"), by.y = "numb
 # pivot longer for both
 pred_dat$shp <- rep("RF predicted")
 plot_dat$shp <- rep("full sim.")
-plot_long <- pivot_longer(plot_dat, cols = 2:5, names_to = "outcome", values_to = "value")
+plot_long <- pivot_longer(plot_dat, cols = 2:6, names_to = "outcome", values_to = "value")
 pred_long <- pivot_longer(pred_dat, cols = 2:6, names_to = "outcome", values_to = "value") # ignore unks
 dat_long <- rbind(plot_long, pred_long)
 
