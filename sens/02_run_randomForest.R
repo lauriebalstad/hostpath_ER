@@ -214,7 +214,7 @@ intv <- round(intv, 3)
 
 # try predicting a few rows of fig1B, to check out how off base things are
 # merge data w/original cases
-str_dat <- readRDS("dat/str_fig_0605.Rdata")
+str_dat <- readRDS("dat/str_fig_0610.Rdata")
 # convert to df
 str_dtf <- as.data.frame(matrix(unlist(str_dat), ncol = 27, byrow = T))
 colnames(str_dtf) <- c("extinct", 
@@ -234,7 +234,7 @@ colnames(str_dtf) <- c("extinct",
                        "parm_number")
 
 # merge data w/original cases
-cases <- expand.grid("transmission" = c("Density only", "Density w/reservior", "Lasting disease shock"), 
+cases <- expand.grid("transmission" = c("Density only", "Density w/reservoir", "Lasting disease shock"), 
                      "compartments" = c("Mortality", "Recovery", "Immunity"), # note SIR doesn't seem to have a big effect
                      "robustness" = c("MB", "TB", "RA", "N")) # 1 = mortality, 2 = transmission, 3 = recovery, 4 = demographic rescue only
 # remove 1/3 compartment/robustness combo
@@ -299,7 +299,7 @@ for (i in 1:N) {
     case_vect[4] <- 1 # transmission increased (dens)
     case_vect[3] <- 0 # by def for this figure/RF
   }
-  if (rep_cases$transmission[i]=="Density w/reservior") {
+  if (rep_cases$transmission[i]=="Density w/reservoir") {
     case_vect[3] <- 0.05 # transmission increased (freq)
     case_vect[4] <- 1
   }

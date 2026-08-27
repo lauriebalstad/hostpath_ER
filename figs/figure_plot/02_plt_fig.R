@@ -102,20 +102,20 @@ all_ts_long <- pivot_longer(str_dat %>% select(c(1:2, 8, 9, 11)), cols = c(3:5),
 all_ts_long$outcome_f <- factor(all_ts_long$outcome, 
                                 levels = c("Scaled\npopulation size", "Adaptive allele\nfrequency", "Infection\nprevelence"), 
                                 labels = c("Scaled pop. size", "Adaptive allele freq.", "Infection prev."))
-colors <- c("Extirpation\n(Ext)" = alpha("#ac1457", 0.8), "Persist. ER" = alpha("#DB6341",0.8),
+colors <- c("Extinction\n(Ext)" = alpha("#ac1457", 0.8), "Persist. ER" = alpha("#DB6341",0.8),
             "Temp. ER" = "#D71B33", "Inf. Loss (IL)" = alpha("#f1c4a2", 0.8),
             "Lasting\ndisease\nshock" = "black")
 fig1A <- ggplot(all_ts_long %>% filter(ts > -8, ts < 35), aes(ts, value)) + # 7, 8, 9, 10 gives exinction
-  geom_line(aes(group = trial), col = alpha("black", 0.12), lwd = 0.75/1.5) +
+  # geom_line(aes(group = trial), col = alpha("black", 0.12), lwd = 0.75/1.5) +
   geom_line(data = all_ts_long %>% filter(trial == 12, ts > -8, ts < 35), aes(color = "Lasting\ndisease\nshock"), lwd = 0.8/1.5) + # extinction
   geom_line(data = all_ts_long %>% filter(trial == 3, ts > -8, ts < 35), aes(color = "Persist. ER"), lwd = 0.9/1.5) + # ER
   geom_line(data = all_ts_long %>% filter(trial == 7, ts > -8, ts < 35), aes(color = "Temp. ER"), lwd = 0.9/1.5) + # back selection
   geom_line(data = all_ts_long %>% filter(trial == 10, ts > -8, ts < 35), aes(color = "Inf. Loss (IL)"), lwd = 0.95/1.5) + # DR
-  geom_line(data = all_ts_long %>% filter(trial == 5, ts > -8, ts < 35), aes(color = "Extirpation\n(Ext)"), lwd = 0.9/1.5) + # extinction
-  facet_wrap(~outcome_f, scale = "free_y", ncol = 1) + theme_bw() + 
+  geom_line(data = all_ts_long %>% filter(trial == 5, ts > -8, ts < 35), aes(color = "Extinction\n(Ext)"), lwd = 0.9/1.5) + # extinction
+  facet_grid(rows = vars(outcome_f), scale = "free_y") + theme_bw() + 
   scale_color_manual(values = colors, 
                      breaks = c("Lasting\ndisease\nshock", "Temp. ER", "Inf. Loss (IL)", 
-                                "Extirpation\n(Ext)", "Persist. ER")) + 
+                                "Extinction\n(Ext)", "Persist. ER")) + 
   theme_bw(base_size = 9.5) +
   theme(legend.position = "bottom", 
         legend.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "pt"),
@@ -124,7 +124,7 @@ fig1A <- ggplot(all_ts_long %>% filter(ts > -8, ts < 35), aes(ts, value)) + # 7,
   labs(x = "Standardized generation", y = NULL, col = NULL)
 
 # merge data w/original cases
-cases <- expand.grid("transmission" = c("Density only", "Density w/reservior", "Lasting disease shock"), 
+cases <- expand.grid("transmission" = c("Density only", "Density w/reservoir", "Lasting disease shock"), 
                      "compartments" = c("Mortality", "Recovery", "Immunity"), # note SIR doesn't seem to have a big effect
                      "robustness" = c("MB", "TB", "RA", "N")) # 1 = mortality, 2 = transmission, 3 = recovery, 4 = demographic rescue only
 # remove 1/3 compartment/robustness combo
@@ -247,7 +247,8 @@ fig1C <- ggplot(data = tmp_plt_short, aes(`value`, reorder(neat_names, `value`))
         legend.key.spacing.y = unit(0, "pt"), 
         axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))  
 
-fig1_h <- plot_grid(fig1A, fig1B, rel_widths = c(0.5, 1), labels = c("A", "B"))
+fig1_A <- plot_grid(NULL, fig1A, rel_heights = c(0.05, 1), ncol = 1)
+fig1_h <- plot_grid(fig1_A, fig1B, rel_widths = c(0.5, 1), labels = c("A", "B"))
 fig1 <- plot_grid(fig1_h, fig1C, ncol = 1, rel_heights = c(1, 0.4), labels = c("", "C"))
 fig1
 
@@ -277,7 +278,7 @@ dev.off()
 #-----FIG2: COST/BENEFIT-----
 sis_cb <- expand.grid("benefit" = c(100, 90, 80, 70, 0), # for percent change in benefit: 0, 50, 75, 100
                       "cost" = c("High cost\n(Mutant fecundity = 40%)", "Moderate cost\n(Mutant fecundity = 70%)", "No cost\n(Mutant fecundity = 100%)"), # 0.1 = some cost, 1 = no cost
-                      "transmission" = c("Density only", "Density w/reservior", "Lasting disease shock"))
+                      "transmission" = c("Density only", "Density w/reservoir", "Lasting disease shock"))
 N <- dim(sis_cb)[1]
 sis_cb$number <- 1:N
 cost_ben <- merge(cb_dtf, sis_cb, by.x = "parm_number", by.y = "number", all = T) # %>% filter(cost > 1.8)
@@ -352,7 +353,7 @@ sis_pop_mut <- expand.grid("population size" = c(50, 100, 500),
                            "robustness" = "Mortality-blocking alleles", # M, G only bc they are strongest ER from past exploration
                            # "mutation rate" = c(0.0005, 0.005, 0.01),
                            "compartments" = "Recovery",
-                           "transmission type" = c("Density only", "Density w/reservior", "Lasting disease shock"))
+                           "transmission type" = c("Density only", "Density w/reservoir", "Lasting disease shock"))
 N <- dim(sis_pop_mut)[1]
 sis_pop_mut$number <- 1:N
 ex_risk <- merge(pm_dtf, sis_pop_mut, by.x = "parm_number", by.y = "number", all = T)
@@ -422,7 +423,7 @@ sis_dc <- expand.grid("disease cycles" = c(3:6), # aiming to span a bit of a ran
                       "event order" = c("Transmission,\nMortality\nRecovery", 
                                         "Mortality,\nTransmission\nRecovery", 
                                         "Recovery,\nMortality\nTransmission"),
-                      "transmission" = c("Density only", "Density w/reservior", "Lasting disease shock"), 
+                      "transmission" = c("Density only", "Density w/reservoir", "Lasting disease shock"), 
                       "compartments" = "Recovery") # 1 = density, 2 = envrionemntal
 N <- dim(sis_dc)[1]
 sis_dc$parm_number <- 1:N

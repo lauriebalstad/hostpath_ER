@@ -3,7 +3,7 @@
     "path": "C:/Users/lauri/Documents/GitHub/hostpath_ER/sens/02_run_randomForest.R",
     "project_path": "sens/02_run_randomForest.R",
     "type": "r_source",
-    "hash": "2774373546",
+    "hash": "2626951001",
     "contents": "",
     "dirty": false,
     "created": 1780769688191.0,
@@ -12,15 +12,15 @@
     "properties": {
         "source_window_id": "",
         "Source": "Source",
-        "cursorPosition": "267,43",
-        "scrollLine": "257"
+        "cursorPosition": "377,27",
+        "scrollLine": "0"
     },
-    "folds": "297|50|300|2|\n301|57|304|2|\n",
-    "lastKnownWriteTime": 1783373696,
+    "folds": "",
+    "lastKnownWriteTime": 1786989995,
     "encoding": "UTF-8",
     "collab_server": "",
     "source_window": "",
-    "last_content_update": 1783373696752,
+    "last_content_update": 1786989995329,
     "read_only": false,
     "read_only_alternatives": []
 }
