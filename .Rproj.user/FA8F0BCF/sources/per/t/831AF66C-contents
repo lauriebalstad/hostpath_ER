@@ -116,7 +116,7 @@ fig1A <- ggplot(all_ts_long %>% filter(ts > -8, ts < 35), aes(ts, value)) + # 7,
   scale_color_manual(values = colors, 
                      breaks = c("Lasting\ndisease\nshock", "Temp. ER", "Inf. Loss (IL)", 
                                 "Extinction\n(Ext)", "Persist. ER")) + 
-  theme_bw(base_size = 9.5) +
+  theme_bw(base_size = 9) +
   theme(legend.position = "bottom", 
         legend.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "pt"),
         legend.key.spacing.y = unit(0, "pt")) + 

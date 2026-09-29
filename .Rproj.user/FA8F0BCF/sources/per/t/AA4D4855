@@ -1,0 +1,26 @@
+{
+    "id": "AA4D4855",
+    "path": "C:/Users/lauri/Documents/GitHub/hostpath_ER/funcs/00_model_cluster.R",
+    "project_path": "funcs/00_model_cluster.R",
+    "type": "r_source",
+    "hash": "1907488854",
+    "contents": "",
+    "dirty": false,
+    "created": 1787851093186.0,
+    "source_on_save": false,
+    "relative_order": 5,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "38,47",
+        "scrollLine": "0"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1780419582,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1780419582,
+    "read_only": false,
+    "read_only_alternatives": []
+}
